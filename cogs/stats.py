@@ -102,19 +102,23 @@ class Stats(commands.Cog):
         # Grab most recent channel message
         serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
                                 creation_date=ctx.guild.created_at)
-        channeldb = Channeldb(id=ctx.channel.id, name=ctx.channel.name, creation_date=ctx.channel.created_at)
-        serverdb.channels.append(channeldb)
-        async for msg in ctx.channel.history(limit=5, oldest_first=True):
-            msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
-                               date=msg.created_at, edited=msg.edited_at)
+        for channel in ctx.guild.text_channels:
+            channeldb = Channeldb(id=ctx.channel.id, name=ctx.channel.name, creation_date=ctx.channel.created_at)
+            serverdb.channels.append(channeldb)
+            try:
+                async for msg in channel.history(limit=5, oldest_first=True):
+                    msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
+                                       date=msg.created_at, edited=msg.edited_at)
 
-            for reaction in msg.reactions:
-                reactiondb = Reactiondb(reaction.emoji.name)
-                msg_db.reactions.append(reactiondb)
-            for attachment in msg.attachments:
-                attachmentdb = Attachmentdb(id=attachment.id, url=attachment.url)
-                msg_db.attachments.append(attachmentdb)
-            channeldb.messages.append(msg_db)
+                    for reaction in msg.reactions:
+                        reactiondb = Reactiondb(reaction.emoji.name)
+                        msg_db.reactions.append(reactiondb)
+                    for attachment in msg.attachments:
+                        attachmentdb = Attachmentdb(id=attachment.id, url=attachment.url)
+                        msg_db.attachments.append(attachmentdb)
+                    channeldb.messages.append(msg_db)
+            except:
+                continue
         session.add(serverdb)
         session.commit()
         await ctx.send("Tested database creation.")
