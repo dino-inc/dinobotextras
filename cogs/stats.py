@@ -25,19 +25,20 @@ class Messagedb(Base):
     is_pinned = Column(Boolean)
     date = Column(DateTime(timezone=True))
     edited = Column(DateTime(timezone=True))
-    reactions = relationship("Reactiondb", backref="message")
-    attachments = relationship("Attachmentdb", backref="message")
-    author = relationship("Memberdb", secondary="member_message")
+    reactions = relationship("Reactiondb", lazy="dynamic", backref="message")
+    attachments = relationship("Attachmentdb", lazy="dynamic", backref="message")
+    author = relationship("Memberdb", lazy="dynamic", secondary="member_message")
 
 
 # Channel within a server
 class Channeldb(Base):
     __tablename__ = "channel"
     topic = Column(String)
+    name = Column(String)
     id = Column(Integer, primary_key=True)
     server_id = Column(Integer, ForeignKey("serverlist.id"))
     creation_date = Column(DateTime(timezone=True))
-    messages = relationship("Messagedb", backref="channel")
+    messages = relationship("Messagedb", lazy="dynamic", backref="channel")
 
 
 # Servers with the bot
@@ -46,7 +47,7 @@ class ServerListdb(Base):
     id = Column(Integer, primary_key=True)
     member_count = Column(Integer)
     creation_date = Column(DateTime(timezone=True))
-    channels = relationship("Channeldb", backref="serverlist")
+    channels = relationship("Channeldb", lazy="dynamic", backref="serverlist")
 
 
 # Members with messages
@@ -100,20 +101,33 @@ class Stats(commands.Cog):
         # Grab most recent channel message
         serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
                                 creation_date=ctx.guild.created_at)
-        channeldb = Channeldb(id=ctx.channel.id, creation_date=ctx.channel.created_at)
+        channeldb = Channeldb(id=ctx.channel.id, name=ctx.channel.name, creation_date=ctx.channel.created_at)
         serverdb.channels.append(channeldb)
         async for msg in ctx.channel.history(limit=5):
             msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                date=msg.created_at, edited=msg.edited_at)
 
             for reaction in msg.reactions:
-                reactiondb = Reactiondb(msg.reactions.emoji.name)
+                reactiondb = Reactiondb(reaction.emoji.name)
                 msg_db.reactions.append(reactiondb)
+            for attachment in msg.attachments:
+                attachmentdb = Attachmentdb(id=attachment.id, url=attachment.url)
+                msg_db.attachments.append(attachmentdb)
             channeldb.messages.append(msg_db)
         session.add(serverdb)
         session.commit()
         await ctx.send("Tested database creation.")
 
+    @commands.is_owner()
+    @commands.command()
+    async def retrieve_message_test(self, ctx):
+        session = self.Session()
+        query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(id=ctx.channel.id)\
+                .first().messages.all()
+        composite_msg = "The first five messages are:\n"
+        for dbmessage in query:
+            composite_msg += f"{dbmessage.content}\n"
+        await ctx.send(composite_msg)
 
 def setup(bot):
     bot.add_cog(Stats(bot))
