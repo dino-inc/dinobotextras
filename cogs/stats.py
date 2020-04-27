@@ -4,11 +4,10 @@ import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import exc
 import asyncio
-
 
 # sqlalchemy boilerplate
 Base = declarative_base()
@@ -19,7 +18,7 @@ engine = create_engine('sqlite:///serverlogs.db')
 class Messagedb(Base):
     __tablename__ = "message"
     id = Column(Integer, primary_key=True)
-    channel_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
+    channel_id = Column(Integer, ForeignKey("channel.id"), primary_key=True)
     content = Column(String)
     bot = Column(Boolean)
     has_embed = Column(Boolean)
@@ -28,7 +27,7 @@ class Messagedb(Base):
     edited = Column(DateTime(timezone=True))
     reactions = relationship("Reactiondb", backref="message")
     attachments = relationship("Attachmentdb", backref="message")
-    author = relationship("Memberdb", secondary="message")
+    author = relationship("Memberdb", secondary="member_message")
 
 
 # Channel within a server
@@ -36,7 +35,7 @@ class Channeldb(Base):
     __tablename__ = "channel"
     topic = Column(String)
     id = Column(Integer, primary_key=True)
-    server_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
+    server_id = Column(Integer, ForeignKey("serverlist.id"))
     creation_date = Column(DateTime(timezone=True))
     messages = relationship("Messagedb", backref="channel")
 
@@ -56,7 +55,7 @@ class Memberdb(Base):
     id = Column(Integer, primary_key=True)
     join_date = Column(DateTime(timezone=True))
     creation_date = Column(DateTime(timezone=True))
-    messages = relationship("Messagedb", secondary="member")
+    messages = relationship("Messagedb", secondary="member_message")
 
 
 # Junction between members and messages
@@ -102,16 +101,18 @@ class Stats(commands.Cog):
         serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
                                 creation_date=ctx.guild.created_at)
         channeldb = Channeldb(id=ctx.channel.id, creation_date=ctx.channel.created_at)
-        serverdb.append(Channeldb)
-        for msg in ctx.channel.history(limit=5):
+        serverdb.channels.append(channeldb)
+        async for msg in ctx.channel.history(limit=5):
             msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                date=msg.created_at, edited=msg.edited_at)
 
             for reaction in msg.reactions:
                 reactiondb = Reactiondb(msg.reactions.emoji.name)
                 msg_db.reactions.append(reactiondb)
-            channeldb.append(msg_db)
+            channeldb.messages.append(msg_db)
         session.add(serverdb)
+        session.commit()
+        await ctx.send("Tested database creation.")
 
 
 def setup(bot):

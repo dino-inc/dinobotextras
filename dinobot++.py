@@ -6,7 +6,7 @@ import random
 
 
 bot = commands.Bot(command_prefix='!')
-initial_extensions = ['cogs.quarantine','cogs.data']
+initial_extensions = ['cogs.quarantine','cogs.stats']
 
 if __name__ == '__main__':
     for extension in initial_extensions:
