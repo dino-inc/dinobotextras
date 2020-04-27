@@ -9,6 +9,7 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy import exc
 import asyncio
 
+
 # sqlalchemy boilerplate
 Base = declarative_base()
 engine = create_engine('sqlite:///serverlogs.db')
@@ -18,6 +19,7 @@ engine = create_engine('sqlite:///serverlogs.db')
 class Messagedb(Base):
     __tablename__ = "message"
     id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
     content = Column(String)
     bot = Column(Boolean)
     has_embed = Column(Boolean)
@@ -26,7 +28,7 @@ class Messagedb(Base):
     edited = Column(DateTime(timezone=True))
     reactions = relationship("Reactiondb", backref="message")
     attachments = relationship("Attachmentdb", backref="message")
-    author = relationship("Memberdb", secondary="member_message")
+    author = relationship("Memberdb", secondary="message")
 
 
 # Channel within a server
@@ -34,8 +36,9 @@ class Channeldb(Base):
     __tablename__ = "channel"
     topic = Column(String)
     id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
     creation_date = Column(DateTime(timezone=True))
-    messages = relationship("Messagedb", backref = "channel")
+    messages = relationship("Messagedb", backref="channel")
 
 
 # Servers with the bot
@@ -43,8 +46,8 @@ class ServerListdb(Base):
     __tablename__ = "serverlist"
     id = Column(Integer, primary_key=True)
     member_count = Column(Integer)
-    creation_date = Column(Integer)
-    channels = relationship("Channeldb", backref = "serverlist")
+    creation_date = Column(DateTime(timezone=True))
+    channels = relationship("Channeldb", backref="serverlist")
 
 
 # Members with messages
@@ -53,20 +56,21 @@ class Memberdb(Base):
     id = Column(Integer, primary_key=True)
     join_date = Column(DateTime(timezone=True))
     creation_date = Column(DateTime(timezone=True))
-    messages = relationship("Messagedb", secondary="member_message")
+    messages = relationship("Messagedb", secondary="member")
 
 
 # Junction between members and messages
 class Member_Message(Base):
     __tablename__ = "member_message"
-    member_id = Column(Integer, ForeignKey('member.id'), primary_key=True)
-    message_id = Column(Integer, ForeignKey('message.id'), primary_key=True)
+    member_id = Column(Integer, ForeignKey("member.id"), primary_key=True)
+    message_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
 
 
 # Store attachments of a message
 class Attachmentdb(Base):
     __tablename__ = "attachment"
-    id = Column(Integer, primary_key=True)
+    message_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
+    id = Column(Integer)
     url = Column(String)
     filename = Column(String)
 
@@ -74,6 +78,7 @@ class Attachmentdb(Base):
 # Store reactions of a message
 class Reactiondb(Base):
     __tablename__ = "reaction"
+    message_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
     emoji_name = Column(String)
     emoji_id = Column(String)
     count = Column(Integer)
@@ -94,13 +99,19 @@ class Stats(commands.Cog):
         session = self.Session()
 
         # Grab most recent channel message
-        for msg in ctx.channel.history(limit=1):
-            for reaction in msg.reactions:
-                reactiondb = Reactiondb()
-                session.add(reactiondb)
+        serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
+                                creation_date=ctx.guild.created_at)
+        channeldb = Channeldb(id=ctx.channel.id, creation_date=ctx.channel.created_at)
+        serverdb.append(Channeldb)
+        for msg in ctx.channel.history(limit=5):
             msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                date=msg.created_at, edited=msg.edited_at)
 
+            for reaction in msg.reactions:
+                reactiondb = Reactiondb(msg.reactions.emoji.name)
+                msg_db.reactions.append(reactiondb)
+            channeldb.append(msg_db)
+        session.add(serverdb)
 
 
 def setup(bot):
