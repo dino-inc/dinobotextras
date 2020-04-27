@@ -8,6 +8,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, Date
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import exc
 import asyncio
+import os
 
 # sqlalchemy boilerplate
 Base = declarative_base()
@@ -95,7 +96,7 @@ class Stats(commands.Cog):
 
     @commands.is_owner()
     @commands.command()
-    async def log_message_test(self, ctx):
+    async def log(self, ctx):
         session = self.Session()
 
         # Grab most recent channel message
@@ -103,7 +104,7 @@ class Stats(commands.Cog):
                                 creation_date=ctx.guild.created_at)
         channeldb = Channeldb(id=ctx.channel.id, name=ctx.channel.name, creation_date=ctx.channel.created_at)
         serverdb.channels.append(channeldb)
-        async for msg in ctx.channel.history(limit=5):
+        async for msg in ctx.channel.history(limit=5, oldest_first=True):
             msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                date=msg.created_at, edited=msg.edited_at)
 
@@ -120,7 +121,7 @@ class Stats(commands.Cog):
 
     @commands.is_owner()
     @commands.command()
-    async def retrieve_message_test(self, ctx):
+    async def show(self, ctx):
         session = self.Session()
         query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(id=ctx.channel.id)\
                 .first().messages.all()
@@ -128,6 +129,29 @@ class Stats(commands.Cog):
         for dbmessage in query:
             composite_msg += f"{dbmessage.content}\n"
         await ctx.send(composite_msg)
+
+    @commands.is_owner()
+    @commands.command()
+    async def cleardb(self, ctx):
+        def verify_user(message):
+            if message.author == ctx.message.author and message.channel == ctx.message.channel:
+                return True
+            else:
+                return False
+        await ctx.send("Are you sure you want to delete the database? Type \"DELETE\" to delete.")
+        choice = ""
+        try:
+            choice = await self.bot.wait_for('message', check=verify_user, timeout=30)
+        except asyncio.TimeoutError:
+            await ctx.send(f"No input found, exiting command.")
+            session.close()
+            return
+        if choice.content == "DELETE":
+            os.remove("serverlogs.db")
+            await ctx.send(f"Database is now deleted.")
+        else:
+            await ctx.send("Could not confirm, exiting command.")
+
 
 def setup(bot):
     bot.add_cog(Stats(bot))
