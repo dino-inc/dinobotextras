@@ -11,7 +11,6 @@ import asyncio
 
 # sqlalchemy boilerplate
 Base = declarative_base()
-engine = create_engine('sqlite:///serverlogs.db')
 
 # Messages within a channel
 class Message(Base):
@@ -27,12 +26,14 @@ class Message(Base):
     attachments = relationship("Attachment", backref="message")
     author = relationship("Member", secondary="member_message")
 
+
 # Channel within a server
 class Channel(Base):
     __tablename__ = "channel"
     topic = Column(String)
     creation_date = Column(DateTime(timezone=True))
     messages = relationship("Message", backref = "channel")
+
 
 # Servers with the bot
 class ServerList(Base):
@@ -42,6 +43,7 @@ class ServerList(Base):
     creation_date = Column(Integer)
     channels = relationship("Channel", backref = "serverlist")
 
+
 # Members with messages
 class Member(Base):
     __tablename__="member"
@@ -50,20 +52,23 @@ class Member(Base):
     creation_date = Column(DateTime(timezone=True))
     messages = relationship("Message", secondary="member_message")
 
+
 # Junction between members and messages
 class Member_Message(Base):
     __tablename__="member_message"
     member_id = Column(Integer, ForeignKey('member.id'), primary_key = True)
     message_id = Column(Integer, ForeignKey('message.id'), primary_key = True)
 
-#Store attachments of a message
+
+# Store attachments of a message
 class Attachment(Base):
     __tablename__="attachment"
     id = Column(Integer, primary_key=True)
     url = Column(String)
     filename = Column(String)
 
-#Store reactions of a message
+
+# Store reactions of a message
 class Reaction(Base):
     __tablename__="reaction"
     emoji_name = Column(String)
@@ -71,15 +76,20 @@ class Reaction(Base):
     count = Column(Integer)
     is_custom_emoji = Column(Boolean)
 
+
 Base.metadata.create_all(engine)
+
 
 class Stats(commands.Cog):
     def __init__(self, bot):
-        example = 1
-        
+        self.bot = bot
+        engine = create_engine('sqlite:///database.db')
+        self.Session = sessionmaker(bind=engine)
+
+    @commands.is_owner()
     @commands.command()
     async def logStuff(self, ctx, channel : discord.TextChannel):
-
+        pass
 
 
 def setup(bot):
