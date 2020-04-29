@@ -70,8 +70,8 @@ class Member_Message(Base):
 # Store attachments of a message
 class Attachmentdb(Base):
     __tablename__ = "attachment"
-    message_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
-    id = Column(Integer)
+    message_id = Column(Integer, ForeignKey("message.id"))
+    id = Column(Integer, primary_key=True)
     url = Column(String)
     filename = Column(String)
 
@@ -79,9 +79,9 @@ class Attachmentdb(Base):
 # Store reactions of a message
 class Reactiondb(Base):
     __tablename__ = "reaction"
-    message_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
+    message_id = Column(Integer, ForeignKey("message.id"))
     emoji_name = Column(String)
-    emoji_id = Column(String)
+    emoji_id = Column(String, primary_key=True)
     count = Column(Integer)
     is_custom_emoji = Column(Boolean)
 
@@ -102,14 +102,17 @@ class Stats(commands.Cog):
         # Grab most recent channel message
         serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
                                 creation_date=ctx.guild.created_at)
+        session.add(serverdb)
+        logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
-            channeldb = Channeldb(id=ctx.channel.id, name=ctx.channel.name, creation_date=ctx.channel.created_at)
+            channeldb = Channeldb(id=channel.id, name=channel.name, creation_date=channel.created_at)
             serverdb.channels.append(channeldb)
             try:
+                counter = 0
                 async for msg in channel.history(limit=5, oldest_first=True):
+                    counter += 1
                     msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                        date=msg.created_at, edited=msg.edited_at)
-
                     for reaction in msg.reactions:
                         reactiondb = Reactiondb(reaction.emoji.name)
                         msg_db.reactions.append(reactiondb)
@@ -117,11 +120,13 @@ class Stats(commands.Cog):
                         attachmentdb = Attachmentdb(id=attachment.id, url=attachment.url)
                         msg_db.attachments.append(attachmentdb)
                     channeldb.messages.append(msg_db)
+                session.commit()
+                logged_channels += f"Logged {counter} messages from <#{channel.id}>.\n"
             except:
-                continue
-        session.add(serverdb)
+                logged_channels += f"Skipping <#{channel.id}> for being inaccessible.\n"
         session.commit()
-        await ctx.send("Tested database creation.")
+        session.close()
+        await ctx.send(logged_channels+"Logging completed.\n")
 
     @commands.is_owner()
     @commands.command()
@@ -153,6 +158,7 @@ class Stats(commands.Cog):
         if choice.content == "DELETE":
             os.remove("serverlogs.db")
             await ctx.send(f"Database is now deleted.")
+            Base.metadata.create_all(engine)
         else:
             await ctx.send("Could not confirm, exiting command.")
 
