@@ -96,7 +96,7 @@ class Stats(commands.Cog):
 
     @commands.is_owner()
     @commands.command()
-    async def log(self, ctx):
+    async def log_server(self, ctx):
         session = self.Session()
 
         # Grab most recent channel message
@@ -109,7 +109,7 @@ class Stats(commands.Cog):
             serverdb.channels.append(channeldb)
             try:
                 counter = 0
-                async for msg in channel.history(limit=5, oldest_first=True):
+                async for msg in channel.history(oldest_first=True):
                     counter += 1
                     msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                        date=msg.created_at, edited=msg.edited_at)
@@ -156,12 +156,14 @@ class Stats(commands.Cog):
             session.close()
             return
         if choice.content == "DELETE":
-            os.remove("serverlogs.db")
+            delete_db(Base)
             await ctx.send(f"Database is now deleted.")
-            Base.metadata.create_all(engine)
         else:
             await ctx.send("Could not confirm, exiting command.")
 
+def delete_db(Base):
+    os.remove("serverlogs.db")
+    Base.metadata.create_all(engine)
 
 def setup(bot):
     bot.add_cog(Stats(bot))
