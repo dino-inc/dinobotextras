@@ -102,7 +102,14 @@ class Stats(commands.Cog):
         # Grab most recent channel message
         serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
                                 creation_date=ctx.guild.created_at)
-        session.add(serverdb)
+        try:
+            session.add(serverdb)
+            session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            # TODO make it update the db instead of failing immediately
+            await ctx.send("This server has already been logged; dino has not yet added upgrade capabilities.")
+            session.close()
+            return
         logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
             channeldb = Channeldb(id=channel.id, name=channel.name, creation_date=channel.created_at)
