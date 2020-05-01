@@ -110,16 +110,22 @@ class Stats(commands.Cog):
             await ctx.send("Updating pre-existing server log.")
         logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
-            channeldb = Channeldb(id=channel.id, name=channel.name, creation_date=channel.created_at)
-            serverdb.channels.append(channeldb)
+            # Get the channel whose ID matches the message... if it exists
+            channel_query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(
+                        id=ctx.channel.id).first()
+            # Create the channel entry... if it is not found
+            if channel_query is None:
+                channeldb = Channeldb(id=channel.id, name=channel.name, creation_date=channel.created_at)
+                serverdb.channels.append(channeldb)
+            # Overly broad try except, go!
             try:
                 counter = 0
                 async for msg in channel.history(oldest_first=True):
                     counter += 1
-                    message_chkr = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(
-                        id=ctx.channel.id).first().messages.filter_by(id=msg.id).first()
+                    # Get the message whose ID matches the message... if it exists
+                    message_query = channel_query.messages.filter_by(id=msg.id).first()
                     # Check if there is no message whose ID matches the iterated message
-                    if message_chkr.filter_by(id=msg.id).first() is None:
+                    if message_query is None:
                         # I'll get to all those extra fields... eventually
                         msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                            date=msg.created_at, edited=msg.edited_at)
