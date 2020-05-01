@@ -99,47 +99,49 @@ class Stats(commands.Cog):
     async def log_server(self, ctx):
         session = self.Session()
 
-        # Grab most recent channel message
-        serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
-                                creation_date=ctx.guild.created_at)
-        try:
+        serverdb = session.query(ServerListdb).filter_by(id=ctx.guild.id).first()
+        if serverdb is None:
+            serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
+                                    creation_date=ctx.guild.created_at)
             session.add(serverdb)
             session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            # TODO make it update the db instead of failing immediately
+        else:
             await ctx.send("Updating pre-existing server log.")
         logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
             # Get the channel whose ID matches the message... if it exists
-            channel_query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(
+            channeldb = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(
                         id=ctx.channel.id).first()
             # Create the channel entry... if it is not found
-            if channel_query is None:
+            if channeldb is None:
                 channeldb = Channeldb(id=channel.id, name=channel.name, creation_date=channel.created_at)
                 serverdb.channels.append(channeldb)
             # Overly broad try except, go!
             try:
-                counter = 0
+                new_msg_counter = 0
+                skip_msg_counter = 0
                 async for msg in channel.history(oldest_first=True):
-                    counter += 1
                     # Get the message whose ID matches the message... if it exists
-                    message_query = channel_query.messages.filter_by(id=msg.id).first()
+                    msg_db = channeldb.messages.filter_by(id=msg.id).first()
                     # Check if there is no message whose ID matches the iterated message
-                    if message_query is None:
+                    if msg_db is None:
+                        new_msg_counter += 1
                         # I'll get to all those extra fields... eventually
                         msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                            date=msg.created_at, edited=msg.edited_at)
                         for reaction in msg.reactions:
                             reactiondb = Reactiondb(reaction.emoji.name)
                             msg_db.reactions.append(reactiondb)
-                        for attachment in msg.attachments:
-                            attachmentdb = Attachmentdb(id=attachment.id, url=attachment.url)
-                            msg_db.attachments.append(attachmentdb)
+                        # Do I really need to be logging attachments?
+                        # for attachment in msg.attachments:
+                            # attachmentdb = Attachmentdb(id=attachment.id, url=attachment.url)
+                            # msg_db.attachments.append(attachmentdb)
                         channeldb.messages.append(msg_db)
                     else:
+                        skip_msg_counter += 1
                         continue
                 session.commit()
-                logged_channels += f"Logged {counter} messages from <#{channel.id}>.\n"
+                logged_channels += f"Logged {new_msg_counter} messages (Skipped {skip_msg_counter}) from <#{channel.id}>.\n"
             except:
                 logged_channels += f"Skipping <#{channel.id}> for being inaccessible.\n"
         session.commit()
