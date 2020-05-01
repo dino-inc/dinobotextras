@@ -107,9 +107,7 @@ class Stats(commands.Cog):
             session.commit()
         except sqlalchemy.exc.IntegrityError:
             # TODO make it update the db instead of failing immediately
-            await ctx.send("This server has already been logged; dino has not yet added upgrade capabilities.")
-            session.close()
-            return
+            await ctx.send("Updating pre-existing server log.")
         logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
             channeldb = Channeldb(id=channel.id, name=channel.name, creation_date=channel.created_at)
@@ -118,15 +116,22 @@ class Stats(commands.Cog):
                 counter = 0
                 async for msg in channel.history(oldest_first=True):
                     counter += 1
-                    msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
-                                       date=msg.created_at, edited=msg.edited_at)
-                    for reaction in msg.reactions:
-                        reactiondb = Reactiondb(reaction.emoji.name)
-                        msg_db.reactions.append(reactiondb)
-                    for attachment in msg.attachments:
-                        attachmentdb = Attachmentdb(id=attachment.id, url=attachment.url)
-                        msg_db.attachments.append(attachmentdb)
-                    channeldb.messages.append(msg_db)
+                    message_chkr = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(
+                        id=ctx.channel.id).first().messages.filter_by(id=msg.id).first()
+                    # Check if there is no message whose ID matches the iterated message
+                    if message_chkr.filter_by(id=msg.id).first() is None:
+                        # I'll get to all those extra fields... eventually
+                        msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
+                                           date=msg.created_at, edited=msg.edited_at)
+                        for reaction in msg.reactions:
+                            reactiondb = Reactiondb(reaction.emoji.name)
+                            msg_db.reactions.append(reactiondb)
+                        for attachment in msg.attachments:
+                            attachmentdb = Attachmentdb(id=attachment.id, url=attachment.url)
+                            msg_db.attachments.append(attachmentdb)
+                        channeldb.messages.append(msg_db)
+                    else:
+                        continue
                 session.commit()
                 logged_channels += f"Logged {counter} messages from <#{channel.id}>.\n"
             except:
