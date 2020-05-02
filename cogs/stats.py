@@ -9,6 +9,7 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy import exc
 import asyncio
 import os
+import matplotlib
 
 # sqlalchemy boilerplate
 Base = declarative_base()
@@ -120,7 +121,7 @@ class Stats(commands.Cog):
             try:
                 new_msg_counter = 0
                 skip_msg_counter = 0
-                async for msg in channel.history(oldest_first=True):
+                async for msg in channel.history(limit=None, oldest_first=True):
                     # Get the message whose ID matches the message... if it exists
                     msg_db = channeldb.messages.filter_by(id=msg.id).first()
                     # Check if there is no message whose ID matches the iterated message
@@ -180,6 +181,8 @@ class Stats(commands.Cog):
             await ctx.send(f"Database is now deleted.")
         else:
             await ctx.send("Could not confirm, exiting command.")
+
+
 
 def delete_db(Base):
     os.remove("serverlogs.db")
