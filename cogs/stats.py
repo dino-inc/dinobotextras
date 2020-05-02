@@ -80,7 +80,8 @@ class Attachmentdb(Base):
 # Store reactions of a message
 class Reactiondb(Base):
     __tablename__ = "reaction"
-    message_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
+    reaction_index = Column('index', Integer, index=True, primary_key=True)
+    message_id = Column(Integer, ForeignKey("message.id"))
     emoji_name = Column(String, unique=False)
     emoji_id = Column(String)
     count = Column(Integer)
@@ -110,6 +111,7 @@ class Stats(commands.Cog):
             await ctx.send("Updating pre-existing server log.")
         logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
+            print("Logging {channel}")
             # Get the channel whose ID matches the message... if it exists
             channeldb = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(
                         id=ctx.channel.id).first()
@@ -166,16 +168,27 @@ class Stats(commands.Cog):
 
     @commands.is_owner()
     @commands.command()
-    async def show(self, ctx, count : Integer):
+    async def show(self, ctx, count: int):
         session = self.Session()
         query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(id=ctx.channel.id)\
                 .first().messages.all()
         composite_msg = f"The first {count} messages are:\n"
         for dbmessage in query:
             composite_msg += f"{dbmessage.content}\n"
-            count += 1
+            count -= 1
             if count == 0:
                 break
+        await ctx.send(composite_msg)
+        session.close()
+
+    @commands.is_owner()
+    @commands.command()
+    async def show_channels(self, ctx):
+        session = self.Session()
+        query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.all()
+        composite_msg = f"The logged channels of the server are:\n"
+        for channel in query:
+            composite_msg += f"{channel.name}\n"
         await ctx.send(composite_msg)
 
     @commands.is_owner()
