@@ -111,14 +111,18 @@ class Stats(commands.Cog):
             await ctx.send("Updating pre-existing server log.")
         logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
-            print("Logging {channel}")
+            print(f"Logging {channel.name}.")
             # Get the channel whose ID matches the message... if it exists
             channeldb = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(
-                        id=ctx.channel.id).first()
+                        id=channel.id).first()
             # Create the channel entry... if it is not found
             if channeldb is None:
+                print(f"Creating entry for {channel.name}.")
                 channeldb = Channeldb(id=channel.id, name=channel.name, creation_date=channel.created_at)
                 serverdb.channels.append(channeldb)
+                session.commit()
+            else:
+                print(f"{channeldb} found with ID {channel.id}, with name {channeldb.name}")
             # Overly broad try except, go!
             try:
                 new_msg_counter = 0
