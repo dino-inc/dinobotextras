@@ -1,2 +1,1 @@
-#dinobotextras
-A repo for experimental cogs designed to be fully independent of dinobot, hence the separate repo and not just a branch.
+To ensure full disconnect from dinobot for maximum modularity, this is its own repository and not a branch. Enjoy the cogs.
