@@ -80,9 +80,9 @@ class Attachmentdb(Base):
 # Store reactions of a message
 class Reactiondb(Base):
     __tablename__ = "reaction"
-    message_id = Column(Integer, ForeignKey("message.id"))
-    emoji_name = Column(String)
-    emoji_id = Column(String, primary_key=True)
+    message_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
+    emoji_name = Column(String, unique=False)
+    emoji_id = Column(String)
     count = Column(Integer)
     is_custom_emoji = Column(Boolean)
 
@@ -131,7 +131,16 @@ class Stats(commands.Cog):
                         msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                            date=msg.created_at, edited=msg.edited_at)
                         for reaction in msg.reactions:
-                            reactiondb = Reactiondb(reaction.emoji.name)
+                            if type(reaction.emoji) is str:
+                                reactiondb = Reactiondb(emoji_name=reaction.emoji, emoji_id=None, count=reaction.count)
+                            elif type(reaction.emoji) is discord.partial_emoji.PartialEmoji:
+                                reactiondb = Reactiondb(emoji_name=reaction.emoji.name, emoji_id=reaction.emoji.id,
+                                                        count=reaction.count)
+                                if reaction.emoji.is_custom_emoji():
+                                    setattr(reactiondb, "is_custom_emoji", True)
+                            else:
+                                reactiondb = Reactiondb(emoji_name=reaction.emoji.name, emoji_id=reaction.emoji.id,
+                                                        count=reaction.count)
                             msg_db.reactions.append(reactiondb)
                         # Do I really need to be logging attachments?
                         # for attachment in msg.attachments:
@@ -142,22 +151,31 @@ class Stats(commands.Cog):
                         skip_msg_counter += 1
                         continue
                 session.commit()
+                if len(logged_channels) > 1800:
+                    await ctx.send(logged_channels)
+                    logged_channels = ""
                 logged_channels += f"Logged {new_msg_counter} messages (Skipped {skip_msg_counter}) from <#{channel.id}>.\n"
-            except:
-                logged_channels += f"Skipping <#{channel.id}> for being inaccessible.\n"
+            except Exception as e:
+                if len(logged_channels) > 1800:
+                    await ctx.send(logged_channels)
+                    logged_channels = ""
+                logged_channels += f"Skipping <#{channel.id}> for {e}.\n"
         session.commit()
         session.close()
         await ctx.send(logged_channels+"Logging completed.\n")
 
     @commands.is_owner()
     @commands.command()
-    async def show(self, ctx):
+    async def show(self, ctx, count : Integer):
         session = self.Session()
         query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(id=ctx.channel.id)\
                 .first().messages.all()
-        composite_msg = "The first five messages are:\n"
+        composite_msg = f"The first {count} messages are:\n"
         for dbmessage in query:
             composite_msg += f"{dbmessage.content}\n"
+            count += 1
+            if count == 0:
+                break
         await ctx.send(composite_msg)
 
     @commands.is_owner()
