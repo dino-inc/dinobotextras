@@ -134,18 +134,23 @@ class Stats(commands.Cog):
                     # Check if there is no message whose ID matches the iterated message
                     if msg_db is None:
                         # Query so it can check if the member already exists
-                        authorquery = session.query(Memberdb).filter_by(id=msg.author).first()
+                        authorquery = session.query(Memberdb).filter_by(id=msg.author.id).first()
                         # If the member is not found, create it
                         if authorquery is None:
-                            author = Memberdb(id=msg.author.id, join_date=msg.author.joined_at,
-                                              created_at=msg.author.created_at)
+                            author = Memberdb(id=msg.author.id, creation_date=msg.author.created_at)
+                            if type(msg.author) is discord.User:
+                                setattr(author, "join_date", None)
+                            else:
+                                setattr(author, "join_date", msg.author.joined_at)
                             session.add(author)
+                            session.commit()
                         # Keep track of how many new messages are created
                         new_msg_counter += 1
                         # I'll get to all those extra fields... eventually
                         msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                            date=msg.created_at, edited=msg.edited_at)
-                        msg_db.author.append(author)
+                        authorquery = session.query(Memberdb).filter_by(id=msg.author.id).first()
+                        msg_db.author.append(authorquery)
                         for reaction in msg.reactions:
                             if type(reaction.emoji) is str:
                                 reactiondb = Reactiondb(emoji_name=reaction.emoji, emoji_id=None, count=reaction.count)
