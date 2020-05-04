@@ -128,14 +128,24 @@ class Stats(commands.Cog):
                 new_msg_counter = 0
                 skip_msg_counter = 0
                 async for msg in channel.history(limit=None, oldest_first=True):
+
                     # Get the message whose ID matches the message... if it exists
                     msg_db = channeldb.messages.filter_by(id=msg.id).first()
                     # Check if there is no message whose ID matches the iterated message
                     if msg_db is None:
+                        # Query so it can check if the member already exists
+                        authorquery = session.query(Memberdb).filter_by(id=msg.author).first()
+                        # If the member is not found, create it
+                        if authorquery is None:
+                            author = Memberdb(id=msg.author.id, join_date=msg.author.joined_at,
+                                              created_at=msg.author.created_at)
+                            session.add(author)
+                        # Keep track of how many new messages are created
                         new_msg_counter += 1
                         # I'll get to all those extra fields... eventually
                         msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                                            date=msg.created_at, edited=msg.edited_at)
+                        msg_db.author.append(author)
                         for reaction in msg.reactions:
                             if type(reaction.emoji) is str:
                                 reactiondb = Reactiondb(emoji_name=reaction.emoji, emoji_id=None, count=reaction.count)
@@ -197,6 +207,13 @@ class Stats(commands.Cog):
 
     @commands.is_owner()
     @commands.command()
+    async def howmany(self, ctx, id):
+        session = self.Session()
+        await ctx.send(len(get_member_messages(session, ctx, id)))
+        session.close()
+
+    @commands.is_owner()
+    @commands.command()
     async def cleardb(self, ctx):
         def verify_user(message):
             if message.author == ctx.message.author and message.channel == ctx.message.channel:
@@ -218,10 +235,18 @@ class Stats(commands.Cog):
             await ctx.send("Could not confirm, exiting command.")
 
 
+# Gets the messages from a user on the guild the ctx is from
+def get_member_messages(session, ctx, member_id):
+    message_list = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(id=ctx.channel.id) \
+        .first().messages.author.filter_by(id=member_id).all()
+    return message_list
 
+
+# Deletes the database
 def delete_db(Base):
     os.remove("serverlogs.db")
     Base.metadata.create_all(engine)
+
 
 def setup(bot):
     bot.add_cog(Stats(bot))
