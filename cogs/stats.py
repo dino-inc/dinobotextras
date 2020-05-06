@@ -21,6 +21,7 @@ class Messagedb(Base):
     __tablename__ = "message"
     id = Column(Integer, primary_key=True)
     channel_id = Column(Integer, ForeignKey("channel.id"), primary_key=True)
+    guild_id = Column(Integer, ForeignKey("serverlist.id"))
     content = Column(String)
     bot = Column(Boolean)
     has_embed = Column(Boolean)
@@ -50,6 +51,7 @@ class ServerListdb(Base):
     member_count = Column(Integer)
     creation_date = Column(DateTime(timezone=True))
     channels = relationship("Channeldb", lazy="dynamic", backref="serverlist")
+    messages = relationship("Messagedb", lazy="dynamic", backref="server")
 
 
 # Members with messages
@@ -211,6 +213,23 @@ class Stats(commands.Cog):
             await ctx.send(f"Database is now deleted.")
         else:
             await ctx.send("Could not confirm, exiting command.")
+    @commands.is_owner()
+    @commands.group(name="graph")
+    async def graph(self, ctx):
+        print("This shouldn't be printing.")
+        pass
+
+    @commands.is_owner()
+    @graph.command()
+    async def total_msg(self, ctx):
+        print("Generating graph of total messages over time.")
+        session = self.session()
+        await validate_serverdb(session, ctx.guild)
+        channels = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels
+        total_messages = []
+        dates = []
+        # for channel, date in zip(channels, dates):
+            # for message in channel:
 
 
 # Gets the messages from a user on the guild the ctx is from
