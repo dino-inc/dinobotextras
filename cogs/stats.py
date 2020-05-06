@@ -204,11 +204,15 @@ class Stats(commands.Cog):
     @commands.command()
     async def show_channels(self, ctx):
         session = self.Session()
-        query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.all()
-        composite_msg = f"The logged channels of the server are:\n"
-        for channel in query:
-            composite_msg += f"{channel.name}\n"
-        await ctx.send(composite_msg)
+        query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first()
+        if query is None:
+            await ctx.send("There are no logged channels.")
+        else:
+            query = query.channels.all()
+            composite_msg = f"The logged channels of the server are:\n"
+            for channel in query:
+                composite_msg += f"{channel.name}\n"
+            await ctx.send(composite_msg)
 
     @commands.is_owner()
     @commands.command()
