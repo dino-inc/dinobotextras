@@ -68,7 +68,7 @@ class Member_Message(Base):
     message_id = Column(Integer, ForeignKey("message.id"), primary_key=True)
 
 
-# Store attachments of a message
+# Store attachments of a message - not used because it really doesn't matter
 class Attachmentdb(Base):
     __tablename__ = "attachment"
     message_id = Column(Integer, ForeignKey("message.id"))
@@ -95,17 +95,21 @@ class Stats(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.Session = sessionmaker(bind=engine)
+        # Samsara, then personal testing server
+        self.log_servers = [309168904310095886, 277294377548775425]
 
     # Add new messages to database as they arrive
     @commands.Cog.listener()
     async def on_message(self, message):
+        # Disable logging for servers I'm not actively logging because there's no need for logging there
+        if message.guild.id not in self.log_servers:
+            return
         session = self.Session()
         await validate_serverdb(session, message.guild)
         channeldb = get_channeldb(session, message.guild, message.channel)
         await create_message(session, channeldb, message)
         session.commit()
         session.close()
-
 
     # The primary logging command
     @commands.is_owner()
@@ -179,9 +183,10 @@ class Stats(commands.Cog):
 
     @commands.is_owner()
     @commands.command()
-    async def howmany(self, ctx, id):
+    async def howmany(self, ctx, member: discord.Member):
         session = self.Session()
-        await ctx.send(len(get_member_messages(session, ctx, id)))
+        await ctx.send(f"{member.display_name} ({member.name}) has sent "
+                       f"{len(get_member_messages(session, ctx, member.id))} messages in {ctx.guild.name}.")
         session.close()
 
 
@@ -210,7 +215,11 @@ class Stats(commands.Cog):
 
 # Gets the messages from a user on the guild the ctx is from
 def get_member_messages(session, ctx, member_id):
-    message_list = session.query(Memberdb).filter_by(id=member_id).first().messages
+    message_query = session.query(Memberdb).filter_by(id=member_id).first().messages
+    message_list = []
+    for message in message_query:
+        if message.channel.serverlist.id == ctx.guild.id:
+            message_list.append(message)
     return message_list
 
 
@@ -225,6 +234,7 @@ def get_channeldb(session, guild, channel):
         session.commit()
     return channeldb
 
+
 # Create server if it doesn't exist
 async def validate_serverdb(session, guild):
     serverdb = session.query(ServerListdb).filter_by(id=guild.id).first()
@@ -235,8 +245,8 @@ async def validate_serverdb(session, guild):
         session.commit()
         print(f"Creating entry for server {guild.name}.")
 
-async def create_message(session, channeldb, msg):
 
+async def create_message(session, channeldb, msg):
     # Creates a new member category if necessary
     # Queries for author ID
     authorquery = session.query(Memberdb).filter_by(id=msg.author.id).first()
