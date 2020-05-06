@@ -7,10 +7,12 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import exc
-from sqlalchemy import desc
+from sqlalchemy import asc
 import asyncio
 import os
 import matplotlib
+import matplotlib.dates as matplotlibdates
+import matplotlib.pyplot as pyplot
 
 # sqlalchemy boilerplate
 Base = declarative_base()
@@ -217,20 +219,26 @@ class Stats(commands.Cog):
     @commands.is_owner()
     @commands.group(name="graph")
     async def graph(self, ctx):
-        print("This shouldn't be printing.")
         pass
 
     @commands.is_owner()
     @graph.command()
     async def total_msg(self, ctx):
-        print("Generating graph of total messages over time.")
-        session = self.session()
+        await ctx.send("Generating graph of total messages over time.")
+        session = self.Session()
         await validate_serverdb(session, ctx.guild)
-        channels = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels
-        total_messages = []
+        # Sort all messages by date
+        messages = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
         dates = []
-        # for channel, date in zip(channels, dates):
-            # for message in channel:
+        current_messages = []
+        total_messages = 0
+        for message in messages:
+            dates.append(matplotlibdates.date2num(message.date))
+            total_messages += 1
+            current_messages.append(total_messages)
+        pyplot.plot_date(dates, current_messages)
+        session.close()
+        await ctx.send("finished")
 
 
 
