@@ -128,46 +128,14 @@ class Stats(commands.Cog):
                 new_msg_counter = 0
                 skip_msg_counter = 0
                 async for msg in channel.history(limit=None, oldest_first=True):
-
                     # Get the message whose ID matches the message... if it exists
                     msg_db = channeldb.messages.filter_by(id=msg.id).first()
                     # Check if there is no message whose ID matches the iterated message
                     if msg_db is None:
-                        # Query so it can check if the member already exists
-                        authorquery = session.query(Memberdb).filter_by(id=msg.author.id).first()
-                        # If the member is not found, create it
-                        if authorquery is None:
-                            author = Memberdb(id=msg.author.id, creation_date=msg.author.created_at)
-                            if type(msg.author) is discord.User:
-                                setattr(author, "join_date", None)
-                            else:
-                                setattr(author, "join_date", msg.author.joined_at)
-                            session.add(author)
-                            session.commit()
                         # Keep track of how many new messages are created
                         new_msg_counter += 1
-                        # I'll get to all those extra fields... eventually
-                        msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
-                                           date=msg.created_at, edited=msg.edited_at)
-                        authorquery = session.query(Memberdb).filter_by(id=msg.author.id).first()
-                        msg_db.author.append(authorquery)
-                        for reaction in msg.reactions:
-                            if type(reaction.emoji) is str:
-                                reactiondb = Reactiondb(emoji_name=reaction.emoji, emoji_id=None, count=reaction.count)
-                            elif type(reaction.emoji) is discord.partial_emoji.PartialEmoji:
-                                reactiondb = Reactiondb(emoji_name=reaction.emoji.name, emoji_id=reaction.emoji.id,
-                                                        count=reaction.count)
-                                if reaction.emoji.is_custom_emoji():
-                                    setattr(reactiondb, "is_custom_emoji", True)
-                            else:
-                                reactiondb = Reactiondb(emoji_name=reaction.emoji.name, emoji_id=reaction.emoji.id,
-                                                        count=reaction.count)
-                            msg_db.reactions.append(reactiondb)
-                        # Do I really need to be logging attachments?
-                        # for attachment in msg.attachments:
-                            # attachmentdb = Attachmentdb(id=attachment.id, url=attachment.url)
-                            # msg_db.attachments.append(attachmentdb)
-                        channeldb.messages.append(msg_db)
+                        # Create the message
+                        await create_message(session, channeldb, msg)
                     else:
                         skip_msg_counter += 1
                         continue
@@ -250,6 +218,42 @@ def get_member_messages(session, ctx, member_id):
     return message_list
 
 
+async def create_message(session, channeldb, msg):
+
+    # Query so it can check if the member already exists
+    authorquery = session.query(Memberdb).filter_by(id=msg.author.id).first()
+    # If the member is not found, create it
+    if authorquery is None:
+        author = Memberdb(id=msg.author.id, creation_date=msg.author.created_at)
+        if type(msg.author) is discord.User:
+            setattr(author, "join_date", None)
+        else:
+            setattr(author, "join_date", msg.author.joined_at)
+        session.add(author)
+        session.commit()
+
+    # I'll get to all those extra fields... eventually
+    msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
+                       date=msg.created_at, edited=msg.edited_at)
+    authorquery = session.query(Memberdb).filter_by(id=msg.author.id).first()
+    msg_db.author.append(authorquery)
+    # Set the bot value
+    if msg.author.bot:
+        setattr(msg_db, "bot", True)
+    for reaction in msg.reactions:
+        if type(reaction.emoji) is str:
+            reactiondb = Reactiondb(emoji_name=reaction.emoji, emoji_id=None, count=reaction.count)
+        elif type(reaction.emoji) is discord.partial_emoji.PartialEmoji:
+            reactiondb = Reactiondb(emoji_name=reaction.emoji.name, emoji_id=reaction.emoji.id,
+                                    count=reaction.count)
+            if reaction.emoji.is_custom_emoji():
+                setattr(reactiondb, "is_custom_emoji", True)
+        else:
+            reactiondb = Reactiondb(emoji_name=reaction.emoji.name, emoji_id=reaction.emoji.id,
+                                    count=reaction.count)
+        msg_db.reactions.append(reactiondb)
+    channeldb.messages.append(msg_db)
+    session.commit()
 # Deletes the database
 def delete_db(Base):
     os.remove("serverlogs.db")
