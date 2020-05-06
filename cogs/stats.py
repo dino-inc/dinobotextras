@@ -97,20 +97,26 @@ class Stats(commands.Cog):
         self.Session = sessionmaker(bind=engine)
 
     # Add new messages to database as they arrive
+    @commands.Cog.listener()
     async def on_message(self, message):
-        channeldb = get_channeldb(session, ctx, channel)
+        session = self.Session()
+        await validate_serverdb(session, message.guild)
+        channeldb = get_channeldb(session, message.guild, message.channel)
+        await create_message(session, channeldb, message)
+        session.close()
+
 
     # The primary logging command
     @commands.is_owner()
     @commands.command()
     async def log_server(self, ctx):
         session = self.Session()
-        await validate_serverdb(session, ctx)
+        await validate_serverdb(session, ctx.guild)
         logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
             print(f"Logging {channel.name}.")
             # Get the channel whose ID matches the message... if it exists
-            channeldb = get_channeldb(session, ctx, channel)
+            channeldb = get_channeldb(session, ctx.guild, channel)
             # Create the channel entry... if it is not found
             if channeldb is None:
                 print(f"Creating entry for {channel.name}.")
@@ -216,21 +222,18 @@ def get_member_messages(session, ctx, member_id):
 
 
 # Gets the channeldb object from a channel object
-def get_channeldb(session, ctx, channel):
-    return session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(id=channel.id).first()
+def get_channeldb(session, guild, channel):
+    return session.query(ServerListdb).filter_by(id=guild.id).first().channels.filter_by(id=channel.id).first()
 
 
-async def validate_serverdb(session, ctx):
-    serverdb = session.query(ServerListdb).filter_by(id=ctx.guild.id).first()
+# Create server if it doesn't exist
+async def validate_serverdb(session, guild):
+    serverdb = session.query(ServerListdb).filter_by(id=guild.id).first()
     if serverdb is None:
-        serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
-                                creation_date=ctx.guild.created_at)
+        serverdb = ServerListdb(id=ctx.guild.id, member_count=guild.member_count,
+                                creation_date=guild.created_at)
         session.add(serverdb)
         session.commit()
-    else:
-        await ctx.send("Updating pre-existing server log.")
-
-
 
 async def create_message(session, channeldb, msg):
 
@@ -240,6 +243,7 @@ async def create_message(session, channeldb, msg):
     # If the member is not found, create it
     if authorquery is None:
         author = Memberdb(id=msg.author.id, creation_date=msg.author.created_at)
+        # There's two types of users, because of course there is
         if type(msg.author) is discord.User:
             setattr(author, "join_date", None)
         else:
