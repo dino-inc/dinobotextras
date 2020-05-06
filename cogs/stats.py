@@ -246,8 +246,7 @@ class Stats(commands.Cog):
 
 # Gets the messages from a user on the guild the ctx is from
 def get_member_messages(session, ctx, member_id):
-    message_list = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(id=ctx.channel.id) \
-        .first().messages.author.filter_by(id=member_id).all()
+    message_list = session.query(Memberdb).filter_by(id=member_id).first().messages
     return message_list
 
 
