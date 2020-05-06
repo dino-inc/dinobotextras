@@ -103,6 +103,7 @@ class Stats(commands.Cog):
         await validate_serverdb(session, message.guild)
         channeldb = get_channeldb(session, message.guild, message.channel)
         await create_message(session, channeldb, message)
+        session.commit()
         session.close()
 
 
@@ -117,14 +118,6 @@ class Stats(commands.Cog):
             print(f"Logging {channel.name}.")
             # Get the channel whose ID matches the message... if it exists
             channeldb = get_channeldb(session, ctx.guild, channel)
-            # Create the channel entry... if it is not found
-            if channeldb is None:
-                print(f"Creating entry for {channel.name}.")
-                channeldb = Channeldb(id=channel.id, name=channel.name, creation_date=channel.created_at)
-                serverdb.channels.append(channeldb)
-                session.commit()
-            else:
-                print(f"{channeldb} found with ID {channel.id}, with name {channeldb.name}")
             # Overly broad try except, go!
             try:
                 new_msg_counter = 0
@@ -223,17 +216,24 @@ def get_member_messages(session, ctx, member_id):
 
 # Gets the channeldb object from a channel object
 def get_channeldb(session, guild, channel):
-    return session.query(ServerListdb).filter_by(id=guild.id).first().channels.filter_by(id=channel.id).first()
-
+    serverdb = session.query(ServerListdb).filter_by(id=guild.id).first()
+    channeldb = serverdb.channels.filter_by(id=channel.id).first()
+    if channeldb is None:
+        print(f"Creating entry for channel {channel.name}.")
+        channeldb = Channeldb(id=channel.id, name=channel.name, creation_date=channel.created_at)
+        serverdb.channels.append(channeldb)
+        session.commit()
+    return channeldb
 
 # Create server if it doesn't exist
 async def validate_serverdb(session, guild):
     serverdb = session.query(ServerListdb).filter_by(id=guild.id).first()
     if serverdb is None:
-        serverdb = ServerListdb(id=ctx.guild.id, member_count=guild.member_count,
+        serverdb = ServerListdb(id=guild.id, member_count=guild.member_count,
                                 creation_date=guild.created_at)
         session.add(serverdb)
         session.commit()
+        print(f"Creating entry for server {guild.name}.")
 
 async def create_message(session, channeldb, msg):
 
