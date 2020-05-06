@@ -96,25 +96,21 @@ class Stats(commands.Cog):
         self.bot = bot
         self.Session = sessionmaker(bind=engine)
 
+    # Add new messages to database as they arrive
+    async def on_message(self, message):
+        channeldb = get_channeldb(session, ctx, channel)
+
+    # The primary logging command
     @commands.is_owner()
     @commands.command()
     async def log_server(self, ctx):
         session = self.Session()
-
-        serverdb = session.query(ServerListdb).filter_by(id=ctx.guild.id).first()
-        if serverdb is None:
-            serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
-                                    creation_date=ctx.guild.created_at)
-            session.add(serverdb)
-            session.commit()
-        else:
-            await ctx.send("Updating pre-existing server log.")
+        await validate_serverdb(session, ctx)
         logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
             print(f"Logging {channel.name}.")
             # Get the channel whose ID matches the message... if it exists
-            channeldb = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(
-                        id=channel.id).first()
+            channeldb = get_channeldb(session, ctx, channel)
             # Create the channel entry... if it is not found
             if channeldb is None:
                 print(f"Creating entry for {channel.name}.")
@@ -189,6 +185,7 @@ class Stats(commands.Cog):
         await ctx.send(len(get_member_messages(session, ctx, id)))
         session.close()
 
+
     @commands.is_owner()
     @commands.command()
     async def cleardb(self, ctx):
@@ -218,9 +215,27 @@ def get_member_messages(session, ctx, member_id):
     return message_list
 
 
+# Gets the channeldb object from a channel object
+def get_channeldb(session, ctx, channel):
+    return session.query(ServerListdb).filter_by(id=ctx.guild.id).first().channels.filter_by(id=channel.id).first()
+
+
+async def validate_serverdb(session, ctx):
+    serverdb = session.query(ServerListdb).filter_by(id=ctx.guild.id).first()
+    if serverdb is None:
+        serverdb = ServerListdb(id=ctx.guild.id, member_count=ctx.guild.member_count,
+                                creation_date=ctx.guild.created_at)
+        session.add(serverdb)
+        session.commit()
+    else:
+        await ctx.send("Updating pre-existing server log.")
+
+
+
 async def create_message(session, channeldb, msg):
 
-    # Query so it can check if the member already exists
+    # Creates a new member category if necessary
+    # Queries for author ID
     authorquery = session.query(Memberdb).filter_by(id=msg.author.id).first()
     # If the member is not found, create it
     if authorquery is None:
@@ -232,7 +247,6 @@ async def create_message(session, channeldb, msg):
         session.add(author)
         session.commit()
 
-    # I'll get to all those extra fields... eventually
     msg_db = Messagedb(id=msg.id, content=msg.content, bot=False, has_embed=False, is_pinned=False,
                        date=msg.created_at, edited=msg.edited_at)
     authorquery = session.query(Memberdb).filter_by(id=msg.author.id).first()
@@ -240,20 +254,32 @@ async def create_message(session, channeldb, msg):
     # Set the bot value
     if msg.author.bot:
         setattr(msg_db, "bot", True)
+    # Sets if it has an embed
+    if msg.embeds is not None:
+        setattr(msg_db, "has_embeds", True)
+    # Sets if it is pinned
+    if msg.pinned:
+        setattr(msg_db, "pinned", True)
+    # Logs reactions
     for reaction in msg.reactions:
+        # Handles the string case of emojis
         if type(reaction.emoji) is str:
             reactiondb = Reactiondb(emoji_name=reaction.emoji, emoji_id=None, count=reaction.count)
+        # Handles partial emojis
         elif type(reaction.emoji) is discord.partial_emoji.PartialEmoji:
             reactiondb = Reactiondb(emoji_name=reaction.emoji.name, emoji_id=reaction.emoji.id,
                                     count=reaction.count)
             if reaction.emoji.is_custom_emoji():
                 setattr(reactiondb, "is_custom_emoji", True)
+        # Handles the only good emojis
         else:
             reactiondb = Reactiondb(emoji_name=reaction.emoji.name, emoji_id=reaction.emoji.id,
                                     count=reaction.count)
         msg_db.reactions.append(reactiondb)
     channeldb.messages.append(msg_db)
     session.commit()
+
+
 # Deletes the database
 def delete_db(Base):
     os.remove("serverlogs.db")
