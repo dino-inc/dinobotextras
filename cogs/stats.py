@@ -14,6 +14,8 @@ import matplotlib
 import matplotlib.dates as matplotlibdates
 import matplotlib.pyplot as pyplot
 
+
+
 # sqlalchemy boilerplate
 Base = declarative_base()
 engine = create_engine('sqlite:///serverlogs.db')
@@ -236,10 +238,15 @@ class Stats(commands.Cog):
             dates.append(matplotlibdates.date2num(message.date))
             total_messages += 1
             current_messages.append(total_messages)
-        pyplot.plot_date(dates, current_messages)
         session.close()
-        await ctx.send("finished")
-
+        pyplot.plot_date(dates, current_messages)
+        pyplot.xlabel("date")
+        pyplot.ylabel("messages")
+        pyplot.savefig("graph.png")
+        raw_graph = open('graph.png', 'rb')
+        photo = discord.File(fp=raw_graph, filename="graph.png")
+        await ctx.send(file=photo)
+        raw_graph.close()
 
 
 # Gets the messages from a user on the guild the ctx is from
