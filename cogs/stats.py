@@ -134,6 +134,7 @@ class Stats(commands.Cog):
                 new_msg_counter = 0
                 skip_msg_counter = 0
                 async for msg in channel.history(limit=None, oldest_first=True):
+                    print(f"Logged {new_msg_counter} and skipped {skip_msg_counter}.")
                     # Get the message whose ID matches the message... if it exists
                     msg_db = channeldb.messages.filter_by(id=msg.id).first()
                     # Check if there is no message whose ID matches the iterated message
