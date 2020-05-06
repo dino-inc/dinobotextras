@@ -7,6 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import exc
+from sqlalchemy import desc
 import asyncio
 import os
 import matplotlib
@@ -21,7 +22,7 @@ class Messagedb(Base):
     __tablename__ = "message"
     id = Column(Integer, primary_key=True)
     channel_id = Column(Integer, ForeignKey("channel.id"), primary_key=True)
-    guild_id = Column(Integer, ForeignKey("serverlist.id"))
+    server_id = Column(Integer, ForeignKey("serverlist.id"))
     content = Column(String)
     bot = Column(Boolean)
     has_embed = Column(Boolean)
@@ -232,6 +233,7 @@ class Stats(commands.Cog):
             # for message in channel:
 
 
+
 # Gets the messages from a user on the guild the ctx is from
 def get_member_messages(session, ctx, member_id):
     message_query = session.query(Memberdb).filter_by(id=member_id).first().messages
@@ -310,6 +312,7 @@ async def create_message(session, channeldb, msg):
                                     count=reaction.count)
         msg_db.reactions.append(reactiondb)
     channeldb.messages.append(msg_db)
+    channeldb.serverlist.messages.append(msg_db)
     session.commit()
 
 
