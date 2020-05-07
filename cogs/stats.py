@@ -11,7 +11,8 @@ from sqlalchemy import asc
 import asyncio
 import os
 import matplotlib
-import matplotlib.dates as matplotlibdates
+import numpy as np
+from matplotlib import dates
 import matplotlib.pyplot as pyplot
 
 
@@ -218,15 +219,19 @@ class Stats(commands.Cog):
         await validate_serverdb(session, ctx.guild)
         # Sort all messages by date
         messages = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
-        dates = []
-        current_messages = []
+
+        datearray = np.zeros(0)
+        current_messages = np.zeros(0)
         total_messages = 0
         for message in messages:
-            dates.append(matplotlibdates.date2num(message.date))
+            datearray = np.append(datearray, dates.date2num(message.date))
             total_messages += 1
-            current_messages.append(total_messages)
+            current_messages = np.append(current_messages, total_messages)
         session.close()
-        pyplot.plot_date(dates, current_messages)
+
+        # Graph generation!
+        pyplot.plot_date(datearray, current_messages,'r-', linestyle='solid', xdate=True, ydate=False, )
+        pyplot.xticks(rotation=30)
         pyplot.xlabel("date")
         pyplot.ylabel("messages")
         pyplot.savefig("graph.png")
