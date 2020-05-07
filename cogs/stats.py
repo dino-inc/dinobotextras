@@ -122,6 +122,7 @@ class Stats(commands.Cog):
     @commands.is_owner()
     @commands.command()
     async def log_server(self, ctx):
+        await ctx.send(f"Logging {ctx.guild.name}.")
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
         logged_channels = "Logged channels:\n"
@@ -136,6 +137,7 @@ class Stats(commands.Cog):
     @commands.is_owner()
     @commands.command()
     async def log_channel(self, ctx, channel: discord.TextChannel):
+        await ctx.send(f"Logging {channel.name}.")
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
         logged_channels = "Logged channels:\n"
@@ -275,7 +277,7 @@ async def log_channel(session, ctx, channel):
     try:
         new_msg_counter = 0
         skip_msg_counter = 0
-        async for msg in channel.history(limit=5, oldest_first=True):
+        async for msg in channel.history(limit=None, oldest_first=True):
             print(f"Logged {new_msg_counter} and skipped {skip_msg_counter}.")
             # Get the message whose ID matches the message... if it exists
             msg_db = channeldb.messages.filter_by(id=msg.id).first()
