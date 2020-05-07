@@ -253,7 +253,7 @@ class Stats(commands.Cog):
     @commands.is_owner()
     @graph.command()
     async def user_vs_total(self, ctx, member: discord.Member):
-        await ctx.send("Generating graph of total messages over time.")
+        await ctx.send("Generating graph of total messages over time with a user.")
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
         # Sort all messages by date
@@ -292,6 +292,51 @@ class Stats(commands.Cog):
         pyplot.xlabel("date")
         pyplot.ylabel("messages")
         pyplot.title(f"Total messages in {ctx.guild.name} over time with {member.display_name}'s messages")
+        pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
+        raw_graph = open('graph.png', 'rb')
+        photo = discord.File(fp=raw_graph, filename="graph.png")
+        await ctx.send(file=photo)
+        raw_graph.close()
+
+
+    @commands.is_owner()
+    @graph.command()
+    async def messages_per_day(self, ctx):
+        await ctx.send("Generating graph of messages per day.")
+        session = self.Session()
+        await validate_serverdb(session, ctx.guild)
+        # Sort all messages by date
+        messages = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
+        datearray = []
+        day_messages = 0
+        daily_messages = []
+        previous_date = 0
+        for message in messages:
+            currentdate = str(message.date.day) + str(message.date.month) + str(message.date.year)
+            if currentdate == previous_date:
+                day_messages += 1
+            else:
+                previous_date = currentdate
+                datearray.append(dates.date2num(message.date))
+                daily_messages.append(day_messages)
+                day_messages = 0
+        session.close()
+        # Graph generation!
+        fig = pyplot.figure()
+        fig.patch.set_alpha(1)
+        fig.patch.set_facecolor('#DEB887')
+        fig.tight_layout()
+
+        ax = fig.add_subplot(1,1,1)
+        ax.plot_date(datearray, daily_messages, 'r-', linestyle='solid', xdate=True, ydate=False)
+
+        ax.set_facecolor('#FFFDD0')
+        pyplot.grid(True, color = 'lightcoral')
+
+        pyplot.xticks(rotation=30)
+        pyplot.xlabel("date")
+        pyplot.ylabel("messages")
+        pyplot.title(f"Total messages in {ctx.guild.name} over time")
         pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
         raw_graph = open('graph.png', 'rb')
         photo = discord.File(fp=raw_graph, filename="graph.png")
