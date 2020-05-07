@@ -67,7 +67,7 @@ class Memberdb(Base):
     id = Column(Integer, primary_key=True)
     join_date = Column(DateTime(timezone=True))
     creation_date = Column(DateTime(timezone=True))
-    messages = relationship("Messagedb", secondary="member_message")
+    messages = relationship("Messagedb", lazy="dynamic", secondary="member_message")
 
 
 # Junction between members and messages
@@ -253,6 +253,50 @@ class Stats(commands.Cog):
     @commands.is_owner()
     @graph.command()
     async def user_vs_total(self, ctx, member: discord.Member):
+        await ctx.send("Generating graph of total messages over time.")
+        session = self.Session()
+        await validate_serverdb(session, ctx.guild)
+        # Sort all messages by date
+        messages = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
+        datearray = []
+        total_messages = 0
+        current_messages = []
+        for message in messages:
+            datearray.append(dates.date2num(message.date))
+            total_messages += 1
+            current_messages.append(total_messages)
+
+        messages = get_member_messages(session, ctx, member.id).order_by(asc(Messagedb.date)).all()
+        memberdatearray = []
+        member_total_messages = 0
+        member_current_messages = []
+        for message in messages:
+            memberdatearray.append(dates.date2num(message.date))
+            member_total_messages += 1
+            member_current_messages.append(member_total_messages)
+        session.close()
+        # Graph generation!
+        fig = pyplot.figure()
+        fig.patch.set_alpha(1)
+        fig.patch.set_facecolor('#DEB887')
+        fig.tight_layout()
+
+        ax = fig.add_subplot(1,1,1)
+        ax.plot_date(memberdatearray, member_current_messages, 'b-', linestyle='solid', xdate=True, ydate=False)
+        ax.plot_date(datearray, current_messages, 'r-', linestyle='solid', xdate=True, ydate=False)
+
+        ax.set_facecolor('#FFFDD0')
+        pyplot.grid(True, color = 'lightcoral')
+
+        pyplot.xticks(rotation=30)
+        pyplot.xlabel("date")
+        pyplot.ylabel("messages")
+        pyplot.title(f"Total messages in {ctx.guild.name} over time with {member.display_name}'s messages")
+        pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
+        raw_graph = open('graph.png', 'rb')
+        photo = discord.File(fp=raw_graph, filename="graph.png")
+        await ctx.send(file=photo)
+        raw_graph.close()
 
 
 # Gets the messages from a user on the guild the ctx is from
