@@ -266,7 +266,7 @@ class Stats(commands.Cog):
             total_messages += 1
             current_messages.append(total_messages)
 
-        messages = session.query(Memberdb).filter_by(id=member_id).first().messages.order_by(asc(Messagedb.date)).all()
+        messages = session.query(Memberdb).filter_by(id=member.id).first().messages.order_by(asc(Messagedb.date)).all()
         memberdatearray = []
         member_total_messages = 0
         member_current_messages = []
@@ -301,13 +301,20 @@ class Stats(commands.Cog):
 
     @commands.is_owner()
     @graph.command()
-    async def messages_per_month(self, ctx, length):
+    async def messages_per(self, ctx, length, *args):
+        member = None
+        if args[0] is not None:
+            member = discord.utils.get(ctx.guild.members, name=args[0])
+            if member is None:
+                await ctx.send("Invalid member.")
+                return
         if length != "day" and length != "month":
             await ctx.send("Invalid length parameter.")
             return
         await ctx.send(f"Generating graph of messages per {length}.")
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
+
         # Sort all messages by date
         message_query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
         datearray = []
@@ -315,6 +322,7 @@ class Stats(commands.Cog):
         accumulated_messages_array = []
         previous_date = 0
         for message in message_query:
+            currentdate = 0
             if length == "day":
                 currentdate = str(message.date.day) + str(message.date.month) + str(message.date.year)
             elif length == "month":
@@ -326,15 +334,36 @@ class Stats(commands.Cog):
                 datearray.append(dates.date2num(message.date))
                 accumulated_messages_array.append(accumulated_messages)
                 accumulated_messages = 0
-        session.close()
         # Graph generation!
         fig = pyplot.figure(num=None, figsize=(16, 6), dpi=100)
         fig.patch.set_alpha(1)
         fig.patch.set_facecolor('#DEB887')
         fig.tight_layout()
 
-        ax = fig.add_subplot(1,1,1)
-        ax.plot_date(datearray, monthly_messages, 'r-', linestyle='solid', xdate=True, ydate=False)
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot_date(datearray, accumulated_messages_array, 'r-', linestyle='solid', xdate=True, ydate=False)
+
+        message_query = session.query(Memberdb).filter_by(id=member.id).first().messages.order_by(asc(Messagedb.date)).all()
+        datearray = []
+        accumulated_messages = 0
+        accumulated_messages_array = []
+        previous_date = 0
+        for message in message_query:
+            currentdate = 0
+            if length == "day":
+                currentdate = str(message.date.day) + str(message.date.month) + str(message.date.year)
+            elif length == "month":
+                currentdate = str(message.date.month) + str(message.date.year)
+            if currentdate == previous_date:
+                accumulated_messages += 1
+            else:
+                previous_date = currentdate
+                datearray.append(dates.date2num(message.date))
+                accumulated_messages_array.append(accumulated_messages)
+                accumulated_messages = 0
+        ax.plot_date(datearray, accumulated_messages_array, 'b-', linestyle='solid', xdate=True, ydate=False)
+        session.close()
+
 
         ax.set_facecolor('#FFFDD0')
         pyplot.grid(True, color = 'lightcoral')
@@ -342,7 +371,7 @@ class Stats(commands.Cog):
         pyplot.xticks(rotation=30)
         pyplot.xlabel("date")
         pyplot.ylabel("messages")
-        pyplot.title(f"Messages per day in {ctx.guild.name}.")
+        pyplot.title(f"Messages per {length} in {ctx.guild.name}.")
         pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
         raw_graph = open('graph.png', 'rb')
         photo = discord.File(fp=raw_graph, filename="graph.png")
