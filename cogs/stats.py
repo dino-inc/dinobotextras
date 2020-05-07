@@ -266,7 +266,7 @@ class Stats(commands.Cog):
             total_messages += 1
             current_messages.append(total_messages)
 
-        messages = get_member_messages(session, ctx, member.id).order_by(asc(Messagedb.date)).all()
+        messages = session.query(Memberdb).filter_by(id=member_id).first().messages.order_by(asc(Messagedb.date)).all()
         memberdatearray = []
         member_total_messages = 0
         member_current_messages = []
@@ -301,35 +301,40 @@ class Stats(commands.Cog):
 
     @commands.is_owner()
     @graph.command()
-    async def messages_per_month(self, ctx):
-        await ctx.send("Generating graph of messages per month.")
+    async def messages_per_month(self, ctx, length):
+        if length != "day" and length != "month":
+            await ctx.send("Invalid length parameter.")
+            return
+        await ctx.send(f"Generating graph of messages per {length}.")
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
         # Sort all messages by date
-        messages = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
+        message_query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
         datearray = []
-        day_messages = 0
-        daily_messages = []
+        accumulated_messages = 0
+        accumulated_messages_array = []
         previous_date = 0
-        for message in messages:
-            currentdate = str(message.date.day) + str(message.date.month) + str(message.date.year)
+        for message in message_query:
+            if length == "day":
+                currentdate = str(message.date.day) + str(message.date.month) + str(message.date.year)
+            elif length == "month":
+                currentdate = str(message.date.month) + str(message.date.year)
             if currentdate == previous_date:
-                day_messages += 1
+                accumulated_messages += 1
             else:
                 previous_date = currentdate
                 datearray.append(dates.date2num(message.date))
-                daily_messages.append(day_messages)
-                day_messages = 0
+                accumulated_messages_array.append(accumulated_messages)
+                accumulated_messages = 0
         session.close()
         # Graph generation!
-        fig = pyplot.figure(num=None, figsize=(6.4, 8), dpi=100)
-        fig = pyplot.figure()
+        fig = pyplot.figure(num=None, figsize=(16, 6), dpi=100)
         fig.patch.set_alpha(1)
         fig.patch.set_facecolor('#DEB887')
         fig.tight_layout()
 
         ax = fig.add_subplot(1,1,1)
-        ax.plot_date(datearray, daily_messages, 'r-', linestyle='solid', xdate=True, ydate=False)
+        ax.plot_date(datearray, monthly_messages, 'r-', linestyle='solid', xdate=True, ydate=False)
 
         ax.set_facecolor('#FFFDD0')
         pyplot.grid(True, color = 'lightcoral')
