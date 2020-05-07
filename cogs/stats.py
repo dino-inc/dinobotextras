@@ -126,36 +126,20 @@ class Stats(commands.Cog):
         await validate_serverdb(session, ctx.guild)
         logged_channels = "Logged channels:\n"
         for channel in ctx.guild.text_channels:
-            print(f"Logging {channel.name}.")
-            # Get the channel whose ID matches the message... if it exists
-            channeldb = get_channeldb(session, ctx.guild, channel)
-            # Overly broad try except, go!
-            try:
-                new_msg_counter = 0
-                skip_msg_counter = 0
-                async for msg in channel.history(limit=None, oldest_first=True):
-                    print(f"Logged {new_msg_counter} and skipped {skip_msg_counter}.")
-                    # Get the message whose ID matches the message... if it exists
-                    msg_db = channeldb.messages.filter_by(id=msg.id).first()
-                    # Check if there is no message whose ID matches the iterated message
-                    if msg_db is None:
-                        # Keep track of how many new messages are created
-                        new_msg_counter += 1
-                        # Create the message
-                        await create_message(session, channeldb, msg)
-                    else:
-                        skip_msg_counter += 1
-                        continue
-                session.commit()
-                if len(logged_channels) > 1800:
-                    await ctx.send(logged_channels)
-                    logged_channels = ""
-                logged_channels += f"Logged {new_msg_counter} messages (Skipped {skip_msg_counter}) from <#{channel.id}>.\n"
-            except Exception as e:
-                if len(logged_channels) > 1800:
-                    await ctx.send(logged_channels)
-                    logged_channels = ""
-                logged_channels += f"Skipping <#{channel.id}> for {e}.\n"
+            logged_channels += await log_channel(session, ctx, channel)
+            logged_channels = await split_string(ctx, logged_channels)
+        session.commit()
+        session.close()
+        await ctx.send(logged_channels+"Logging completed.\n")
+
+
+    @commands.is_owner()
+    @commands.command()
+    async def log_channel(self, ctx, channel: discord.TextChannel):
+        session = self.Session()
+        await validate_serverdb(session, ctx.guild)
+        logged_channels = "Logged channels:\n"
+        logged_channels += await log_channel(session, ctx, channel)
         session.commit()
         session.close()
         await ctx.send(logged_channels+"Logging completed.\n")
@@ -281,6 +265,46 @@ async def validate_serverdb(session, guild):
         session.add(serverdb)
         session.commit()
         print(f"Creating entry for server {guild.name}.")
+
+
+async def log_channel(session, ctx, channel):
+    print(f"Logging {channel.name}.")
+    # Get the channel whose ID matches the message... if it exists
+    channeldb = get_channeldb(session, channel.guild, channel)
+    # Overly broad try except, go!
+    try:
+        new_msg_counter = 0
+        skip_msg_counter = 0
+        async for msg in channel.history(limit=5, oldest_first=True):
+            print(f"Logged {new_msg_counter} and skipped {skip_msg_counter}.")
+            # Get the message whose ID matches the message... if it exists
+            msg_db = channeldb.messages.filter_by(id=msg.id).first()
+            # Check if there is no message whose ID matches the iterated message
+            if msg_db is None:
+                # Keep track of how many new messages are created
+                new_msg_counter += 1
+                # Create the message
+                await create_message(session, channeldb, msg)
+            else:
+                skip_msg_counter += 1
+                continue
+        session.commit()
+        logged_channels = f"Logged {new_msg_counter} messages (Skipped {skip_msg_counter}) from <#{channel.id}>.\n"
+        return logged_channels
+
+    except Exception as e:
+        logged_channels = f"Skipping <#{channel.id}> for {e}.\n"
+        return logged_channels
+
+
+async def split_string(ctx, string):
+    if len(string) > 1800:
+        await ctx.send(string)
+        string = ""
+        return string
+    else:
+        return string
+
 
 
 async def create_message(session, channeldb, msg):
