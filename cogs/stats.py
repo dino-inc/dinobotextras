@@ -212,7 +212,7 @@ class Stats(commands.Cog):
     async def graph(self, ctx):
         pass
 
-    @commands.is_owner()
+
     @graph.command()
     async def total_msg(self, ctx):
         await ctx.send("Generating graph of total messages over time.")
@@ -250,7 +250,6 @@ class Stats(commands.Cog):
         await ctx.send(file=photo)
         raw_graph.close()
 
-    @commands.is_owner()
     @graph.command()
     async def user_vs_total(self, ctx, member: discord.Member):
         await ctx.send("Generating graph of total messages over time with a user.")
@@ -299,9 +298,8 @@ class Stats(commands.Cog):
         raw_graph.close()
 
 
-    @commands.is_owner()
     @graph.command()
-    async def messages_per(self, ctx, length, *args):
+    async def messages_per(self, ctx, length, total_server: bool, *args):
         member = None
         if args[0] is not None:
             member = discord.utils.get(ctx.guild.members, name=args[0])
@@ -312,38 +310,40 @@ class Stats(commands.Cog):
             await ctx.send("Invalid length parameter.")
             return
         await ctx.send(f"Generating graph of messages per {length}.")
-        session = self.Session()
-        await validate_serverdb(session, ctx.guild)
 
-        # Sort all messages by date
-        message_query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
-        datearray = []
-        accumulated_messages = 0
-        accumulated_messages_array = []
-        previous_date = 0
-        for message in message_query:
-            currentdate = 0
-            if length == "day":
-                currentdate = str(message.date.day) + str(message.date.month) + str(message.date.year)
-            elif length == "month":
-                currentdate = str(message.date.month) + str(message.date.year)
-            if currentdate == previous_date:
-                accumulated_messages += 1
-            else:
-                previous_date = currentdate
-                datearray.append(dates.date2num(message.date))
-                accumulated_messages_array.append(accumulated_messages)
-                accumulated_messages = 0
         # Graph generation!
         fig = pyplot.figure(num=None, figsize=(16, 6), dpi=100)
         fig.patch.set_alpha(1)
         fig.patch.set_facecolor('#DEB887')
         fig.tight_layout()
-
         ax = fig.add_subplot(1, 1, 1)
-        ax.plot_date(datearray, accumulated_messages_array, 'r-', linestyle='solid', xdate=True, ydate=False)
 
-        message_query = session.query(Memberdb).filter_by(id=member.id).first().messages.order_by(asc(Messagedb.date)).all()
+        session = self.Session()
+        await validate_serverdb(session, ctx.guild)
+        if total_server:
+            # Sort all messages by date
+            message_query = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages\
+                            .order_by(asc(Messagedb.date)).all()
+            datearray = []
+            accumulated_messages = 0
+            accumulated_messages_array = []
+            previous_date = 0
+            for message in message_query:
+                currentdate = 0
+                if length == "day":
+                    currentdate = str(message.date.day) + str(message.date.month) + str(message.date.year)
+                elif length == "month":
+                    currentdate = str(message.date.month) + str(message.date.year)
+                if currentdate == previous_date:
+                    accumulated_messages += 1
+                else:
+                    previous_date = currentdate
+                    datearray.append(dates.date2num(message.date))
+                    accumulated_messages_array.append(accumulated_messages)
+                    accumulated_messages = 0
+            ax.plot_date(datearray, accumulated_messages_array, 'r-', linestyle='solid', xdate=True, ydate=False)
+
+        message_query = session.query(Memberdb).filter_by(id=member.id).first().messages.filter_by(server_id=ctx.guild.id).order_by(asc(Messagedb.date)).all()
         datearray = []
         accumulated_messages = 0
         accumulated_messages_array = []
@@ -371,7 +371,7 @@ class Stats(commands.Cog):
         pyplot.xticks(rotation=30)
         pyplot.xlabel("date")
         pyplot.ylabel("messages")
-        pyplot.title(f"Messages per {length} in {ctx.guild.name}.")
+        pyplot.title(f"Messages per {length} in {ctx.guild.name} of {member.name}.")
         pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
         raw_graph = open('graph.png', 'rb')
         photo = discord.File(fp=raw_graph, filename="graph.png")
