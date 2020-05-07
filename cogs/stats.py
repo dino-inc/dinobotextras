@@ -301,8 +301,8 @@ class Stats(commands.Cog):
 
     @commands.is_owner()
     @graph.command()
-    async def messages_per_day(self, ctx):
-        await ctx.send("Generating graph of messages per day.")
+    async def messages_per_month(self, ctx):
+        await ctx.send("Generating graph of messages per month.")
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
         # Sort all messages by date
@@ -322,6 +322,7 @@ class Stats(commands.Cog):
                 day_messages = 0
         session.close()
         # Graph generation!
+        fig = pyplot.figure(num=None, figsize=(6.4, 8), dpi=100)
         fig = pyplot.figure()
         fig.patch.set_alpha(1)
         fig.patch.set_facecolor('#DEB887')
@@ -336,7 +337,7 @@ class Stats(commands.Cog):
         pyplot.xticks(rotation=30)
         pyplot.xlabel("date")
         pyplot.ylabel("messages")
-        pyplot.title(f"Total messages in {ctx.guild.name} over time")
+        pyplot.title(f"Messages per day in {ctx.guild.name}.")
         pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
         raw_graph = open('graph.png', 'rb')
         photo = discord.File(fp=raw_graph, filename="graph.png")
