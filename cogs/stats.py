@@ -13,6 +13,7 @@ import os
 import matplotlib
 import numpy as np
 from matplotlib import dates
+import matplotlib.ticker as tick
 import matplotlib.pyplot as pyplot
 
 
@@ -219,26 +220,39 @@ class Stats(commands.Cog):
         await validate_serverdb(session, ctx.guild)
         # Sort all messages by date
         messages = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
-
-        datearray = np.zeros(0)
-        current_messages = np.zeros(0)
+        datearray = []
         total_messages = 0
+        current_messages = []
         for message in messages:
-            datearray = np.append(datearray, dates.date2num(message.date))
+            datearray.append(dates.date2num(message.date))
             total_messages += 1
-            current_messages = np.append(current_messages, total_messages)
+            current_messages.append(total_messages)
         session.close()
-
         # Graph generation!
-        pyplot.plot_date(datearray, current_messages,'r-', linestyle='solid', xdate=True, ydate=False, )
+        fig = pyplot.figure()
+        fig.patch.set_alpha(1)
+        fig.patch.set_facecolor('#DEB887')
+        fig.tight_layout()
+
+        ax = fig.add_subplot(1,1,1)
+        ax.plot_date(datearray, current_messages, 'r-', linestyle='solid', xdate=True, ydate=False)
+
+        ax.set_facecolor('#FFFDD0')
+        pyplot.grid(True, color = 'lightcoral')
+
         pyplot.xticks(rotation=30)
         pyplot.xlabel("date")
         pyplot.ylabel("messages")
-        pyplot.savefig("graph.png")
+        pyplot.title(f"Total messages in {ctx.guild.name} over time")
+        pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
         raw_graph = open('graph.png', 'rb')
         photo = discord.File(fp=raw_graph, filename="graph.png")
         await ctx.send(file=photo)
         raw_graph.close()
+
+    @commands.is_owner()
+    @graph.command()
+    async def user_vs_total(self, ctx, member: discord.Member):
 
 
 # Gets the messages from a user on the guild the ctx is from
