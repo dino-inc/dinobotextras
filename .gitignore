@@ -3,3 +3,9 @@ cogs/__pycache__/
 virtualenv/
 serverlogs.db
 backup.db
+utils/__pycache__/
+/__pycache__/
+venv
+.idea
+config.ini
+database.db
