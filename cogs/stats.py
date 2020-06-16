@@ -378,6 +378,29 @@ class Stats(commands.Cog):
         await ctx.send(file=photo)
         raw_graph.close()
 
+    @graph.command()
+    async def channel_pie(self, ctx, channel: discord.TextChannel):
+        await ctx.send("Generating graph of channel message distribution.")
+        # Graph generation!
+        fig = pyplot.figure(num=None, figsize=(16, 6), dpi=100)
+        fig.patch.set_alpha(1)
+        fig.patch.set_facecolor('#DEB887')
+        fig.tight_layout()
+        ax = fig.add_subplot(1, 1, 1)
+        session = self.Session()
+        await validate_serverdb(session, ctx.guild)
+        message_query = session.query(Channeldb).filter_by(id=channel.id).first().messages.filter_by(
+            channel_id=channel.id).order_by(asc(Messagedb.date)).all()
+        member_stat_dict = {}
+        for message in message_query:
+            if member_stat_dict.get(message.author.first().id) is None:
+                member_stat_dict[message.author.first().id] = 1
+            else:
+                member_stat_dict[message.author.first().id] = member_stat_dict[message.author.first().id] + 1
+        for member_id, count in member_stat_dict.items():
+            print(f"{member_id}: {count}")
+
+
 
 # Gets the messages from a user on the guild the ctx is from
 def get_member_messages(session, ctx, member_id):
