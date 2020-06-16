@@ -15,6 +15,9 @@ import numpy as np
 from matplotlib import dates
 import matplotlib.ticker as tick
 import matplotlib.pyplot as pyplot
+import operator
+import time
+from progress.bar import IncrementalBar
 
 
 
@@ -372,6 +375,7 @@ class Stats(commands.Cog):
         pyplot.xlabel("date")
         pyplot.ylabel("messages")
         pyplot.title(f"Messages per {length} in {ctx.guild.name} of {member.name}.")
+        pyplot.tight_layout()
         pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
         raw_graph = open('graph.png', 'rb')
         photo = discord.File(fp=raw_graph, filename="graph.png")
@@ -390,16 +394,37 @@ class Stats(commands.Cog):
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
         message_query = session.query(Channeldb).filter_by(id=channel.id).first().messages.filter_by(
-            channel_id=channel.id).order_by(asc(Messagedb.date)).all()
+            channel_id=channel.id).order_by(asc(Messagedb.date))
         member_stat_dict = {}
+        print("Beginning message analysis.")
+        bar = IncrementalBar("Processing", max=message_query.count(),
+                             suffix=f"Elapsed: %(elapsed)ds - %(percent).1f%% - %(remaining)d left - %(eta)ds remaining")
+        bar.check_tty = False
+        start = time.perf_counter()
         for message in message_query:
-            if member_stat_dict.get(message.author.first().id) is None:
-                member_stat_dict[message.author.first().id] = 1
+            member_name = discord.utils.get(ctx.guild.members, id=message.author.first().id)
+            if member_name is None:
+                continue
+            if member_stat_dict.get(member_name) is None:
+                member_stat_dict[member_name] = 1
             else:
-                member_stat_dict[message.author.first().id] = member_stat_dict[message.author.first().id] + 1
-        for member_id, count in member_stat_dict.items():
-            print(f"{member_id}: {count}")
+                member_stat_dict[member_name] = member_stat_dict[member_name] + 1
+            bar.next()
+        end = time.perf_counter()
+        print(f"\nMessage analysis finished in {end-start:0.4f} seconds.")
+        sorted_dict = sorted(member_stat_dict.items(), key=operator.itemgetter(1))
+        names, count = zip(*sorted_dict)
+        fig1, ax = pyplot.subplots()
+        ax.set_facecolor('#FFFDD0')
+        ax.pie(count, labels=names, autopct='%1.1f%%',
+                shadow=True, startangle=90, rotatelabels=True)
+        ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+        pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
 
+        raw_graph = open('graph.png', 'rb')
+        photo = discord.File(fp=raw_graph, filename="graph.png")
+        await ctx.send(file=photo)
+        raw_graph.close()
 
 
 # Gets the messages from a user on the guild the ctx is from
