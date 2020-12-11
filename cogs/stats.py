@@ -108,7 +108,7 @@ class Stats(commands.Cog):
         self.bot = bot
         self.Session = sessionmaker(bind=engine)
         # Samsara, then personal testing server
-        self.log_servers = [309168904310095886, 277294377548775425]
+        self.log_servers = [231084230808043522]
 
     # Add new messages to database as they arrive
     @commands.Cog.listener()
@@ -124,9 +124,10 @@ class Stats(commands.Cog):
         session.close()
 
     # The primary logging command
-    @commands.is_owner()
     @commands.command()
     async def log_server(self, ctx):
+        if (ctx.author.id != 141695444995670017):
+            return
         await ctx.send(f"Logging {ctx.guild.name}.")
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
@@ -139,9 +140,10 @@ class Stats(commands.Cog):
         await ctx.send(logged_channels+"Logging completed.\n")
 
 
-    @commands.is_owner()
     @commands.command()
     async def log_channel(self, ctx, channel: discord.TextChannel):
+        if (ctx.author.id != 141695444995670017):
+            return
         await ctx.send(f"Logging {channel.name}.")
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
@@ -210,27 +212,38 @@ class Stats(commands.Cog):
             await ctx.send(f"Database is now deleted.")
         else:
             await ctx.send("Could not confirm, exiting command.")
-    @commands.is_owner()
+
     @commands.group(name="graph")
     async def graph(self, ctx):
         pass
 
-
     @graph.command()
-    async def total_msg(self, ctx):
+    async def total_msg(self, ctx, channel : discord.TextChannel):
         await ctx.send("Generating graph of total messages over time.")
         session = self.Session()
         await validate_serverdb(session, ctx.guild)
         # Sort all messages by date
-        messages = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
+        #messages = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
+        # Instead, do it all for a specific channel
+        messages = session.query(Channeldb).filter_by(id=channel.id).first().messages.filter_by(channel_id=channel.id).order_by(asc(Messagedb.date))
+
         datearray = []
-        total_messages = 0
-        current_messages = []
+        accumulated_messages = 0
+        accumulated_messages_array = []
+        previous_date = 0
         for message in messages:
-            datearray.append(dates.date2num(message.date))
-            total_messages += 1
-            current_messages.append(total_messages)
+            # currentdate = str(message.date.day) + str(message.date.month) + str(message.date.year)
+            currentdate = str(message.date.month) + str(message.date.year)
+            if currentdate == previous_date:
+                accumulated_messages += 1
+            else:
+                previous_date = currentdate
+                datearray.append(dates.date2num(message.date))
+                accumulated_messages_array.append(accumulated_messages)
+                accumulated_messages = 0
+        #ax.plot_date(datearray, accumulated_messages_array, 'b-', linestyle='solid', xdate=True, ydate=False)
         session.close()
+
         # Graph generation!
         fig = pyplot.figure()
         fig.patch.set_alpha(1)
@@ -238,7 +251,7 @@ class Stats(commands.Cog):
         fig.tight_layout()
 
         ax = fig.add_subplot(1,1,1)
-        ax.plot_date(datearray, current_messages, 'r-', linestyle='solid', xdate=True, ydate=False)
+        ax.plot_date(datearray, accumulated_messages_array, 'r-', linestyle='solid', xdate=True, ydate=False)
 
         ax.set_facecolor('#FFFDD0')
         pyplot.grid(True, color = 'lightcoral')
@@ -246,13 +259,14 @@ class Stats(commands.Cog):
         pyplot.xticks(rotation=30)
         pyplot.xlabel("date")
         pyplot.ylabel("messages")
-        pyplot.title(f"Total messages in {ctx.guild.name} over time")
+        pyplot.title(f"Total messages in {channel.name} per month")
         pyplot.savefig("graph.png", facecolor=fig.get_facecolor())
         raw_graph = open('graph.png', 'rb')
         photo = discord.File(fp=raw_graph, filename="graph.png")
         await ctx.send(file=photo)
         raw_graph.close()
 
+    @commands.is_owner()
     @graph.command()
     async def user_vs_total(self, ctx, member: discord.Member):
         await ctx.send("Generating graph of total messages over time with a user.")
@@ -260,6 +274,7 @@ class Stats(commands.Cog):
         await validate_serverdb(session, ctx.guild)
         # Sort all messages by date
         messages = session.query(ServerListdb).filter_by(id=ctx.guild.id).first().messages.order_by(asc(Messagedb.date)).all()
+
         datearray = []
         total_messages = 0
         current_messages = []
@@ -277,6 +292,7 @@ class Stats(commands.Cog):
             member_total_messages += 1
             member_current_messages.append(member_total_messages)
         session.close()
+
         # Graph generation!
         fig = pyplot.figure()
         fig.patch.set_alpha(1)
@@ -300,15 +316,12 @@ class Stats(commands.Cog):
         await ctx.send(file=photo)
         raw_graph.close()
 
-
     @graph.command()
-    async def messages_per(self, ctx, length, total_server: bool, *args):
-        member = None
-        if args[0] is not None:
-            member = discord.utils.get(ctx.guild.members, name=args[0])
-            if member is None:
-                await ctx.send("Invalid member.")
-                return
+    async def messages_per(self, ctx, length, total_server: bool, member : discord.Member):
+        print(f"Graphing request by {ctx.author.display_name}")
+        if(total_server == True and ctx.author.id != 141695444995670017):
+            await ctx.send("Please do not use this unless you are dino.")
+            return
         if length != "day" and length != "month":
             await ctx.send("Invalid length parameter.")
             return
@@ -384,6 +397,8 @@ class Stats(commands.Cog):
 
     @graph.command()
     async def channel_pie(self, ctx, channel: discord.TextChannel):
+        if (ctx.author.id != 141695444995670017):
+            return
         await ctx.send("Generating graph of channel message distribution.")
         # Graph generation!
         fig = pyplot.figure(num=None, figsize=(16, 6), dpi=100)
@@ -402,7 +417,8 @@ class Stats(commands.Cog):
         bar.check_tty = False
         start = time.perf_counter()
         for message in message_query:
-            member_name = discord.utils.get(ctx.guild.members, id=message.author.first().id)
+            member_id = message.author.first().id
+            member_name = discord.utils.get(ctx.guild.members, id=member_id)
             if member_name is None:
                 continue
             if member_stat_dict.get(member_name) is None:
