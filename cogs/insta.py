@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import instaloader
 from instaloader import Post
+import pathlib
 import re
 from datetime import datetime
 class Insta(commands.Cog):
@@ -10,10 +11,11 @@ class Insta(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        shortcode = re.search('(https://.*/.*)/', message.content)
+        shortcode = re.search('(https://.*)/(.*)/', message.content)
         if shortcode is None:
             return
-        self.insta.download_pic("insta", shortcode.group(0), datetime.now(), )
+        post = Post.from_shortcode(self.insta.context, shortcode.group(2))
+        self.insta.download_post(post, "instagram")
 
 
 
