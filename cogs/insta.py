@@ -3,15 +3,18 @@ from discord.ext import commands
 import instaloader
 from instaloader import Post
 import re
+from datetime import datetime
 class Insta(commands.Cog):
     def __init__(self, bot):
         self.insta = instaloader.Instaloader()
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        shortcode = re.search('/.*/(.*)/', message.content)
-        Post.from_shortcode(self.insta.context, shortcode.group(0))
-        self.insta.download_post()
+        shortcode = re.search('(https://.*/.*)/', message.content)
+        if shortcode is None:
+            return
+        self.insta.download_pic("insta", shortcode.group(0), datetime.now(), )
+
 
 
 def setup(bot):
