@@ -20,8 +20,10 @@ class Insta(commands.Cog):
             os.remove(filepath)
 
         # Create and download the post
-        post = Post.from_shortcode(self.insta.context, shortcode.group(2))
         try:
+            if "instagram" not in shortcode.group(1):
+                return
+            post = Post.from_shortcode(self.insta.context, shortcode.group(2))
             self.insta.download_post(post, "instagram")
         except:
             pass
