@@ -4,10 +4,12 @@ import instaloader
 from instaloader import Post
 import re
 import os
+import json
 class Insta(commands.Cog):
     def __init__(self, bot):
         self.insta = instaloader.Instaloader()
-
+        insta_creds = json.load(open("./auth.json"))
+        self.insta.login(insta_creds["username"], insta_creds["password"])
     @commands.Cog.listener()
     async def on_message(self, message):
         shortcode = re.search('(https://.*)/(.*)/', message.content)

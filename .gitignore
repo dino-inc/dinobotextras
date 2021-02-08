@@ -10,3 +10,4 @@ venv
 config.ini
 database.db
 instagram/
+auth.json
