@@ -29,37 +29,32 @@ class Insta(commands.Cog):
             self.insta.download_post(post, "instagram")
         except Exception as e: 
             await message.channel.send(f"Unable to download post; error is {e}") 
-            pass
+            return
 
         filepath = None
         try:
             # Delete all downloaded files that aren't the image
             for filename in os.listdir(directory):
-                if str(filename).endswith(".jpg'") or str(filename).endswith(".png'") or str(filename).endswith(".mp4"):
+                name = filename.decode('utf-8')
+                if name.endswith(".jpg") or name.endswith(".png") or name.endswith(".mp4"):
+                    print(f"not deleting {filename}")
                     pass
                 else:
                     filepath = os.path.join(directory, filename)
                     os.remove(filepath)
         except Exception as e:
             await message.channel.send(f"Unable  to clean the directory after downloading images; error is {e}")
-            pass
-
-        try:
-            # Send all downloaded images into chat
-            for filename in os.listdir(directory):
-                filepath = os.path.join(directory, filename)
-                photo = None
-                print(filename)
-                if(str(filename).endswith(".jpg")):
-                    photo = discord.File(fp=filepath, filename="feonge.jpg")
-                elif(str(filename).endswith(".png")):
-                    photo = discord.File(fp=filepath, filename="feonge.png")
-                elif(str(filename).endswith(".mp4")):
-                    photo = discord.File(fp=filepath, filename="feonge.mp4")
-                await message.channel.send(file=photo)
-        except Exception as e:
-            await message.channel.send(f"Unable to send media; error is {e}")
             return
+
+        # Send all downloaded images into chat
+        for filename in os.listdir(directory):
+            try:
+                filepath = os.path.join(directory, filename)
+                photo = discord.File(fp=filepath, filename=filename.decode('utf-8'))
+                await message.channel.send(file=photo)
+            except Exception as e:
+                await message.channel.send(f"Unable to send media; error is {e}")
+                return
 def setup(bot):
     bot.add_cog(Insta(bot))
 
