@@ -15,17 +15,17 @@ class Insta(commands.Cog):
         shortcode = re.search('(https://.*)/(.*)/', message.content)
         if shortcode is None:
             return
-        async with message.channel.typing():
-            directory = os.fsencode("./instagram/")
-            # Empty the image directory of old images
-            for filename in os.listdir(directory):
-                filepath = os.path.join(directory, filename)
-                os.remove(filepath)
 
-            # Create and download the post
+        directory = os.fsencode("./instagram/")
+        # Empty the image directory of old images
+        for filename in os.listdir(directory):
+            filepath = os.path.join(directory, filename)
+            os.remove(filepath)
+        if "instagram" not in shortcode.group(1):
+            return
+        # Create and download the post
+        async with message.channel.typing():
             try:
-                if "instagram" not in shortcode.group(1):
-                    return
                 post = Post.from_shortcode(self.insta.context, shortcode.group(2))
                 self.insta.download_post(post, "instagram")
             except Exception as e:
