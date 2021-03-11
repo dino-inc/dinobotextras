@@ -12,6 +12,7 @@ class Insta(commands.Cog):
         self.insta.login(insta_creds["username"], insta_creds["password"])
     @commands.Cog.listener()
     async def on_message(self, message):
+        async with message.channel.typing():
         shortcode = re.search('(https://.*)/(.*)/', message.content)
         if shortcode is None:
             return
