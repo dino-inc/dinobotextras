@@ -12,10 +12,10 @@ class Insta(commands.Cog):
         self.insta.login(insta_creds["username"], insta_creds["password"])
     @commands.Cog.listener()
     async def on_message(self, message):
+        shortcode = re.search('(https://.*)/(.*)/', message.content)
+        if shortcode is None:
+            return
         async with message.channel.typing():
-            shortcode = re.search('(https://.*)/(.*)/', message.content)
-            if shortcode is None:
-                return
             directory = os.fsencode("./instagram/")
             # Empty the image directory of old images
             for filename in os.listdir(directory):
