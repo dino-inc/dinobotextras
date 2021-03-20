@@ -9,6 +9,7 @@ import requests
 from lxml import html
 import io
 import magic
+import time
 
 class Insta(commands.Cog):
     def __init__(self, bot):
@@ -77,7 +78,13 @@ async def deviantart_rip(self, message):
         image = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@src')
         title = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@alt')
 
-        # Get image from link
+        # Check if image response list is empty
+        if not image:
+            unsupported = await message.channel.send("Unable to retrieve link; likely a currently unsupported video.")
+            time.sleep(5)
+            await unsupported.delete()
+            return
+        # Get raw image data from link
         image_request = requests.get(image[0], stream=True).raw.data
 
         # Find file extension
