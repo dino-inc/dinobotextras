@@ -75,7 +75,6 @@ async def deviantart_rip(self, message):
         raw_html = html.fromstring(page.content)
         image = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@src')
         title = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@alt')
-        #compile image from chunks
         image_request = requests.get(image[0], stream=True).raw.data
         raw_image = io.BytesIO(image_request)
         discord_file = discord.File(fp=raw_image, filename=title[0]+'.png')
