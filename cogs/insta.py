@@ -8,6 +8,7 @@ import json
 import requests
 from lxml import html
 import io
+import magic
 
 class Insta(commands.Cog):
     def __init__(self, bot):
@@ -26,7 +27,6 @@ class Insta(commands.Cog):
             filepath = os.path.join(directory, filename)
             os.remove(filepath)
         if "instagram" not in shortcode.group(1) and "deviantart" not in shortcode.group(1):
-            print("no valid site")
             return
         # Create and download the post
         async with message.channel.typing():
@@ -71,15 +71,24 @@ async def instagram_rip(self, shortcode, message):
 
 async def deviantart_rip(self, message):
     try:
+        # Retrieve image link
         page = requests.get(message.content)
         raw_html = html.fromstring(page.content)
         image = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@src')
         title = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@alt')
-        #compile image from chunks
+
+        # Get image from link
         image_request = requests.get(image[0], stream=True).raw.data
+
+        # Find file extension
+        filetype = magic.Magic(mime=True).from_buffer(image_request)
+        filetype = filetype.split('/')[1]
+
+        # Convert into discord file
         raw_image = io.BytesIO(image_request)
-        discord_file = discord.File(fp=raw_image, filename=title[0]+'.png')
+        discord_file = discord.File(fp=raw_image, filename=title[0] +'.'+ filetype)
         await message.channel.send(file=discord_file)
+        await message.edit(suppress=True)
         print(f"Successfully posted image {title[0]}.")
         return True
     except Exception as e:
