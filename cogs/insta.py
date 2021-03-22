@@ -13,12 +13,16 @@ import time
 
 class Insta(commands.Cog):
     def __init__(self, bot):
+        self.bot = bot
         self.insta = instaloader.Instaloader(download_video_thumbnails=False)
         insta_creds = json.load(open("./auth.json"))
         self.insta.login(insta_creds["username"], insta_creds["password"])
     @commands.Cog.listener()
     async def on_message(self, message):
+        if(message.author.id == 416391123360284683):
+            return
         shortcode = re.search('(https://.*)/(.*)/', message.content)
+        link = re.search('(https://.*/.*/.*)', message.content)
         if shortcode is None:
             return
 
@@ -34,7 +38,7 @@ class Insta(commands.Cog):
             if "instagram" in shortcode.group(1):
                 await instagram_rip(self, shortcode, message)
             elif "deviantart" in shortcode.group(1):
-                await deviantart_rip(self, message)
+                await deviantart_rip(self, message, link)
                 return
             filepath = None
             try:
@@ -70,10 +74,10 @@ async def instagram_rip(self, shortcode, message):
         await message.channel.send(f"Unable to download instagram post; error is {e}")
         return False
 
-async def deviantart_rip(self, message):
+async def deviantart_rip(self, message, link):
     try:
         # Retrieve image link
-        page = requests.get(message.content)
+        page = requests.get(link[1])
         raw_html = html.fromstring(page.content)
         image = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@src')
         title = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@alt')
