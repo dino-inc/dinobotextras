@@ -63,7 +63,7 @@ class Insta(commands.Cog):
                     await message.channel.send(file=photo)
                 except Exception as e:
                     await message.channel.send(f"Unable to send media; error is {e}")
-                    return
+                    continue
 
 async def instagram_rip(self, shortcode, message):
     try:
