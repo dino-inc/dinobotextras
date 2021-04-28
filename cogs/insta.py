@@ -115,7 +115,7 @@ async def deviantart_rip(self, message, link):
 
 async def twitter_rip(self, message):
     try:
-        twitter_link = re.search('(https://twitter.com/[a-zA-Z0-9]*/status/[0-9]*)', message.content).group(1)
+        twitter_link = re.search('(https://twitter.com/[a-zA-Z0-9_]*/status/[0-9]*)', message.content).group(1)
         ydl_ops = {'outtmpl': 'instagram/%(title)s.%(ext)s'}
         with youtube_dl.YoutubeDL(ydl_ops) as ydl:
             print(twitter_link)
