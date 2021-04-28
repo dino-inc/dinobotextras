@@ -40,6 +40,9 @@ class Insta(commands.Cog):
             elif "deviantart" in shortcode.group(1):
                 await deviantart_rip(self, message, link)
                 return
+            elif "twitter" in shortcode.group(1):
+                await twitter_rip(self, message)
+                return
             filepath = None
             try:
                 # Delete all downloaded files that aren't the image
@@ -104,6 +107,15 @@ async def deviantart_rip(self, message, link):
         return True
     except Exception as e:
         await message.channel.send(f"Unable to download deviantart post; error is {e}")
+        return False
+
+async def twitter_rip(self, message):
+    try:
+        twitter_id = re.search('(?:https://twitter.com/)(?:.*)/([0-9]*)', message.content).group(1)
+        os.system(f'twitter-dl --video --nophoto --tweet [twitter_id] /instagram/')
+        return True
+    except Exception as e:
+        await message.channel.send(f"Unable to download tweet; error is {e}")
         return False
 
 def setup(bot):
