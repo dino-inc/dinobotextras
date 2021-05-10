@@ -6,8 +6,7 @@ import random
 
 
 bot = commands.Bot(command_prefix='!')
-# initial_extensions = ['cogs.quarantine','cogs.stats']
-initial_extensions = ['cogs.insta']
+initial_extensions = ['cogs.insta', 'cogs.channelorder']
 if __name__ == '__main__':
     for extension in initial_extensions:
         try:
