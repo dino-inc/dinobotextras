@@ -62,6 +62,7 @@ class Insta(commands.Cog):
 
         # Send all downloaded images into chat
         for filename in os.listdir(directory):
+            print(f"filename is {filename}.")
             try:
                 filepath = os.path.join(directory, filename)
                 photo = discord.File(fp=filepath, filename=filename.decode('utf-8'))
@@ -76,6 +77,8 @@ async def instagram_rip(self, shortcode, message):
             post = Post.from_shortcode(self.insta.context, shortcode.group(2))
             self.insta.download_post(post, "instagram")
             return True
+    except TypeError:
+        return False
     except Exception as e:
         await message.channel.send(f"Unable to download instagram post; error is {e}")
         return False
@@ -123,7 +126,8 @@ async def twitter_rip(self, message):
         return True
     except youtube_dl.utils.DownloadError:
         pass
-
+    except TypeError:
+        return False
     except Exception as e:
         await message.channel.send(f"Unable to download tweet; error is {e}")
         return False
