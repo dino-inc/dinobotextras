@@ -22,7 +22,7 @@ class Insta(commands.Cog):
         self.bot = bot
         self.insta = instaloader.Instaloader(download_video_thumbnails=False)
         insta_creds = json.load(open("./auth.json"))
-        # self.insta.login(insta_creds["username"], insta_creds["password"])
+        self.insta.login(insta_creds["username"], insta_creds["password"])
     @commands.Cog.listener()
     async def on_message(self, message):
         if(message.author.id == 416391123360284683):
@@ -124,7 +124,7 @@ async def twitter_rip(self, message):
 async def artfight_rip(self, message):
     artfight_creds = json.load(open("./auth.json"))
     options = Options()
-    # options.headless = True
+    options.headless = True
     browser = webdriver.Firefox(options=options)
     browser.get(message.content)
     username = browser.find_element_by_xpath("//input[@name='username']")
