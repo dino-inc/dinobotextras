@@ -12,13 +12,17 @@ from lxml import html
 import io
 import magic
 import time
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+import asyncio
+
 
 class Insta(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.insta = instaloader.Instaloader(download_video_thumbnails=False)
         insta_creds = json.load(open("./auth.json"))
-        self.insta.login(insta_creds["username"], insta_creds["password"])
+        # self.insta.login(insta_creds["username"], insta_creds["password"])
     @commands.Cog.listener()
     async def on_message(self, message):
         if(message.author.id == 416391123360284683):
@@ -35,7 +39,8 @@ class Insta(commands.Cog):
             os.remove(filepath)
         if "instagram" not in shortcode.group(1) \
                 and "deviantart" not in shortcode.group(1) \
-                and "twitter" not in shortcode.group(1):
+                and "twitter" not in shortcode.group(1)\
+                and "artfight" not in shortcode.group(1):
             return
         # Create and download the post
         if "instagram" in shortcode.group(1):
@@ -45,6 +50,8 @@ class Insta(commands.Cog):
             return
         elif "twitter" in shortcode.group(1):
             await twitter_rip(self, message)
+        elif "artfight" in shortcode.group(1):
+            await artfight_rip(self, message)
         filepath = None
         try:
             # Delete all downloaded files that aren't the image
@@ -92,25 +99,7 @@ async def deviantart_rip(self, message, link):
             image = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@src')
             title = raw_html.xpath('//*[@id="root"]/main/div/div[1]/div[1]/div/div[2]/div[1]/div/img/@alt')
 
-            # Check if image response list is empty
-            if not image:
-                unsupported = await message.channel.send("Unable to retrieve link; likely a currently unsupported video.")
-                time.sleep(5)
-                await unsupported.delete()
-                return
-            # Get raw image data from link
-            image_request = requests.get(image[0], stream=True).raw.data
-
-            # Find file extension
-            filetype = magic.Magic(mime=True).from_buffer(image_request)
-            filetype = filetype.split('/')[1]
-
-            # Convert into discord file
-            raw_image = io.BytesIO(image_request)
-            discord_file = discord.File(fp=raw_image, filename=title[0] +'.'+ filetype)
-            await message.channel.send(file=discord_file)
-            await message.edit(suppress=True)
-            print(f"Successfully posted image {title[0]}.")
+            await direct_download(image, title, message, "deviantart")
             return True
     except Exception as e:
         await message.channel.send(f"Unable to download deviantart post; error is {e}")
@@ -129,8 +118,51 @@ async def twitter_rip(self, message):
     except TypeError:
         return False
     except Exception as e:
-        await message.channel.send(f"Unable to download tweet; error is {e}")
+        print(f"Unable to download tweet; error is {e}")
         return False
+
+async def artfight_rip(self, message):
+    artfight_creds = json.load(open("./auth.json"))
+    options = Options()
+    # options.headless = True
+    browser = webdriver.Firefox(options=options)
+    browser.get(message.content)
+    username = browser.find_element_by_xpath("//input[@name='username']")
+    password = browser.find_element_by_xpath("//input[@name='password']")
+    username.send_keys(artfight_creds["artuser"])
+    password.send_keys(artfight_creds["artpass"])
+    password.submit()
+    await asyncio.sleep(5)
+    image = browser.find_element_by_css_selector('div div a img').get_attribute("src")
+    title = browser.find_element_by_css_selector('div div a img').get_attribute("data-original-title")
+    await direct_download(image, title, message, "artfight")
+    return True
+
+async def direct_download(image, title, message, site):
+    image_request = None
+    if site == "deviantart":
+        # Check if image response list is empty
+        if not image:
+            unsupported = await message.channel.send("Unable to retrieve link; likely a currently unsupported video.")
+            time.sleep(5)
+            await unsupported.delete()
+            return
+        # Get raw image data from link
+        image_request = requests.get(image[0], stream=True).raw.data
+    elif site == "artfight":
+        image_request = requests.get(image, stream=True).raw.data
+    # Find file extension
+    filetype = magic.Magic(mime=True).from_buffer(image_request)
+    filetype = filetype.split('/')[1]
+
+    # Convert into discord file
+    raw_image = io.BytesIO(image_request)
+    if site == "deviantart":
+        title = title[0]
+    discord_file = discord.File(fp=raw_image, filename=title + '.' + filetype)
+    await message.channel.send(file=discord_file)
+    await message.edit(suppress=True)
+    print(f"Successfully posted image {title}.")
 
 def setup(bot):
     bot.add_cog(Insta(bot))
