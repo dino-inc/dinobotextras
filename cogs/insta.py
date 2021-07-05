@@ -13,7 +13,7 @@ import io
 import magic
 import time
 from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.options import Options
 import asyncio
 
 
@@ -125,7 +125,7 @@ async def artfight_rip(self, message):
     artfight_creds = json.load(open("./auth.json"))
     options = Options()
     options.headless = True
-    browser = webdriver.Firefox(options=options)
+    browser = webdriver.Chrome(options=options)
     browser.get(message.content)
     username = browser.find_element_by_xpath("//input[@name='username']")
     password = browser.find_element_by_xpath("//input[@name='password']")
