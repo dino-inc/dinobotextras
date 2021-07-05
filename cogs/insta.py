@@ -136,6 +136,7 @@ async def artfight_rip(self, message):
     image = browser.find_element_by_css_selector('div div a img').get_attribute("src")
     title = browser.find_element_by_css_selector('div div a img').get_attribute("data-original-title")
     await direct_download(image, title, message, "artfight")
+    browser.close()
     return True
 
 async def direct_download(image, title, message, site):
