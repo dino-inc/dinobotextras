@@ -52,6 +52,7 @@ class Insta(commands.Cog):
             await twitter_rip(self, message)
         elif "artfight" in shortcode.group(1):
             await artfight_rip(self, message)
+            return
         filepath = None
         try:
             # Delete all downloaded files that aren't the image
