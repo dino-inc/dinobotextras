@@ -175,13 +175,17 @@ async def direct_download(image, title, message, site):
 
 # Pass in the message and the link string to check for spoiler
 async def is_spoiler(message):
-    spoiler = re.search('\|\|(.*)\|\|', message.content)
+    spoil = False
+    spoiler = re.findall('(\|\|([^|]*)\|\|)', message.content)
     link = re.search('((https://.*)(/.*/)([\w-]*)+)', message.content)
-    if spoiler is not None and link is not None and spoiler.group(1) == link.group(1):
-        print(f"{spoiler.group(1)}, {link.group(1)}")
+    for match in spoiler:
+        if spoiler is not None and link is not None and match[1] == link.group(1):
+            spoil = True
+    if spoil:
         return True
     else:
         return False
+
 
 def setup(bot):
     bot.add_cog(Insta(bot))
