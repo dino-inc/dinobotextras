@@ -72,7 +72,10 @@ class Insta(commands.Cog):
             print(f"filename is {filename}.")
             try:
                 filepath = os.path.join(directory, filename)
-                photo = discord.File(fp=filepath, filename=filename.decode('utf-8'))
+                if link.group(0) is not None and await is_spoiler(message):
+                    photo = discord.File(fp=filepath, filename=filename.decode('utf-8'), spoiler=True)
+                else:
+                    photo = discord.File(fp=filepath, filename=filename.decode('utf-8'))
                 await message.channel.send(file=photo)
             except Exception as e:
                 await message.channel.send(f"Unable to send media; error is {e}")
@@ -160,10 +163,24 @@ async def direct_download(image, title, message, site):
     raw_image = io.BytesIO(image_request)
     if site == "deviantart":
         title = title[0]
-    discord_file = discord.File(fp=raw_image, filename=title + '.' + filetype)
+    if(await is_spoiler(message)):
+        discord_file = discord.File(fp=raw_image, filename=title + '.' + filetype, spoiler=True)
+    else:
+        discord_file = discord.File(fp=raw_image, filename=title + '.' + filetype)
     await message.channel.send(file=discord_file)
     await message.edit(suppress=True)
     print(f"Successfully posted image {title}.")
+
+
+# Pass in the message and the link string to check for spoiler
+async def is_spoiler(message):
+    spoiler = re.search('\|\|(.*)\|\|', message.content)
+    link = re.search('((https://.*)(/.*/)([\w-]*)+)', message.content)
+    if spoiler is not None and link is not None and spoiler.group(1) == link.group(1):
+        print(f"{spoiler.group(1)}, {link.group(1)}")
+        return True
+    else:
+        return False
 
 def setup(bot):
     bot.add_cog(Insta(bot))
