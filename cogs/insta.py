@@ -52,6 +52,7 @@ class Insta(commands.Cog):
             await twitter_rip(self, message)
         elif "artfight" in shortcode.group(1):
             await artfight_rip(self, message)
+            return
         filepath = None
         try:
             # Delete all downloaded files that aren't the image
@@ -139,7 +140,7 @@ async def artfight_rip(self, message):
     image = browser.find_element_by_css_selector('div div a img').get_attribute("src")
     title = browser.find_element_by_css_selector('div div a img').get_attribute("data-original-title")
     await direct_download(image, title, message, "artfight")
-    browser.close()
+    browser.quit()
     return True
 
 async def direct_download(image, title, message, site):
