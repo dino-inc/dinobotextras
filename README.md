@@ -1,1 +1,1 @@
-To ensure full disconnect from dinobot for maximum modularity, this is its own repository and not a branch. Enjoy the cogs.
+This repository has been absorbed by the main dinobot repository. 
